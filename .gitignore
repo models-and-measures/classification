@@ -1,0 +1,18 @@
+
+.DS_Store
+*.doc
+*.pages
+*.numbers
+*.xlsx
+*.docx
+doc/attestation-securite-sociale-smerep.pdf
+doc/carte_séjour.pdf
+doc/M2_convention_de_stage.pdf
+doc/PSL Student Card Changqing FU.pdf
+doc/recap_22268.pdf
+doc/RIB Changqing Fu.jpeg
+doc/RIB Changqing Fu.pdf
+*.pvd
+*.vtu
+*.log
+*.out

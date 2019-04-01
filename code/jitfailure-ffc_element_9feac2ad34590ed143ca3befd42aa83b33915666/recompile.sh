@@ -1,0 +1,3 @@
+#!/bin/bash
+# Execute this file to recompile locally
+x86_64-apple-darwin13.4.0-clang++ -Wall -shared -fPIC -std=c++11 -O2 -I/anaconda3/lib/python3.6/site-packages/ffc/backends/ufc -I/anaconda3/.cache/dijitso/include ffc_element_9feac2ad34590ed143ca3befd42aa83b33915666.cpp -L/anaconda3/.cache/dijitso/lib -Wl,-rpath,/anaconda3/.cache/dijitso/lib -Wl,-install_name,/anaconda3/.cache/dijitso/lib/libdijitso-ffc_element_9feac2ad34590ed143ca3befd42aa83b33915666.so -olibdijitso-ffc_element_9feac2ad34590ed143ca3befd42aa83b33915666.so
