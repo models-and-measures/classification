@@ -16,3 +16,9 @@ doc/RIB Changqing Fu.pdf
 *.vtu
 *.log
 *.out
+*.h5
+*.xdmf
+*.gz
+*.xdmf
+*.h5
+ref_pde/GLM2018 - copie.pdf
