@@ -1,0 +1,3 @@
+#!/bin/bash
+# Execute this file to recompile locally
+x86_64-apple-darwin13.4.0-clang++ -Wall -shared -fPIC -std=c++11 -O3 -fno-math-errno -fno-trapping-math -ffinite-math-only -I/anaconda3/include -I/anaconda3/include/eigen3 -I/anaconda3/lib/python3.6/site-packages/ffc/backends/ufc -I/anaconda3/.cache/dijitso/include dolfin_expression_968ddcc5865ae64f63a404afc7cb534e.cpp -L/anaconda3/lib -L/anaconda3/.cache/dijitso/lib -Wl,-rpath,/anaconda3/.cache/dijitso/lib -lpmpi -lmpi -lmpicxx -lpetsc -lslepc -lm -ldl -lz -lpthread -lhdf5 -lboost_timer -ldolfin -Wl,-install_name,/anaconda3/.cache/dijitso/lib/libdijitso-dolfin_expression_968ddcc5865ae64f63a404afc7cb534e.so -olibdijitso-dolfin_expression_968ddcc5865ae64f63a404afc7cb534e.so

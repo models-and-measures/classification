@@ -15,12 +15,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import subprocess
-import matplotlib.animation as animation
 
+## TODO: object programming
 
 #### Create mesh
 a=.5
-b=.2
+b=.1
 domain_vertices = [Point(-2.0, -0.2),
                    Point(0.0, -0.2),
                    Point(1.9,-2.1),
@@ -36,28 +36,37 @@ domain_vertices = [Point(-2.0, -0.2),
                    Point(-2.0,0.2)]
 polygon = Polygon(domain_vertices)
 domain = polygon
-mesh = generate_mesh(domain, 128)
-# plt.figure()
-# plot(mesh)
+mesh = generate_mesh(domain, 100)
+plt.figure()
+plot(mesh)
 # plt.draw()
 # plt.pause(1)
-# plt.show()
+plt.show()
 
-T = .1              # final time
-num_steps = 500   # number of time steps # must satisfy CFL condition
+T = 0.4              # final time
+num_steps = 1000   # number of time steps # must satisfy CFL condition
 dt = T / num_steps # time step size
-mu = 0.001         # dynamic viscosity
-rho = 1            # density
+mu = 0.03         # dynamic viscosity, poise
+rho = 1            # density, g/cm3
+c = 1.6e-5
+R = 7501.5
 
 # Define function spaces
 V = VectorFunctionSpace(mesh, 'P', 2)
 Q = FunctionSpace(mesh, 'P', 1)
 
 
-
 # Define boundaries
 inflow   = 'near(x[0], -2.0)'
-outflow  = 'near(x[0]-x[1], 4) || near(x[0]+x[1], 4)'
+# outflow  = 'near(x[0]-x[1], 4) || near(x[0]+x[1], 4)'
+# outflow1  = 'near(x[0]-x[1], 4)'
+# outflow2  = 'near(x[0]+x[1], 4)'
+def outflow(x, on_boundary):
+    return  (near(x[0]-x[1], 4) or near(x[0]+x[1], 4)) and on_boundary
+def outflow1(x, on_boundary):
+    return  near(x[0]-x[1], 4) and on_boundary
+def outflow2(x, on_boundary):
+    return  near(x[0]+x[1], 4) and on_boundary
 # # Define walls without shrinkage (abandoned)
 # walls    = '((near(x[1], -0.2) || near(x[1], 0.2)) && x[0]<=0)' \
 #             +' || ((near(x[1] - x[0], 0.2) || near(x[1] + x[0], -0.2)) && x[0]>0 )' \
@@ -100,6 +109,8 @@ inflow_v = ('4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)', '0')
 bcu_inflow = DirichletBC(V, Expression(inflow_v, degree=2), inflow)
 bcu_walls = DirichletBC(V, Constant((0, 0)), walls)
 # bcu_cylinder = DirichletBC(V, Constant((0, 0)), cylinder)
+# bcp_outflow1 = DirichletBC(Q, Constant((0)), outflow1)
+# bcp_outflow2 = DirichletBC(Q, Constant((0)), outflow2)
 bcp_outflow = DirichletBC(Q, Constant((0)), outflow)
 bcu = [bcu_inflow, bcu_walls]
 bcp = [bcp_outflow]
@@ -158,46 +169,42 @@ A3 = assemble(a3)
 [bc.apply(A1) for bc in bcu]
 [bc.apply(A2) for bc in bcp]
 
-# Create XDMF files for visualization output
-xdmffile_u = XDMFFile('Y_shape_solution/velocity.xdmf')
-xdmffile_p = XDMFFile('Y_shape_solution/pressure.xdmf')
+# # Create XDMF files for visualization output
+# xdmffile_u = XDMFFile('Y_shape_solution/velocity.xdmf')
+# xdmffile_p = XDMFFile('Y_shape_solution/pressure.xdmf')
 
-# Create time series (for use in reaction_system.py)
-timeseries_u = TimeSeries('Y_shape_solution/velocity_series')
-timeseries_p = TimeSeries('Y_shape_solution/pressure_series')
+# # Create time series (for use in reaction_system.py)
+# timeseries_u = TimeSeries('Y_shape_solution/velocity_series')
+# timeseries_p = TimeSeries('Y_shape_solution/pressure_series')
 
-# Save mesh to file (for use in reaction_system.py)
-xdmffile_mesh = File('Y_shape_solution/Y.xml.gz')
-xdmffile_mesh << mesh
+# # Save mesh to file (for use in reaction_system.py)
+# xdmffile_mesh = File('Y_shape_solution/Y.xml.gz')
+# xdmffile_mesh << mesh
 
 # Create progress bar
 #progress = dolfin.cpp.log.Progress('Time-stepping')
 #set_log_level(PROGRESS)
 pbar = tqdm(total=T)
 
+# dynamic BC
+flag_dynamic = True
 
-def update_line(num, data, line):
-    line.set_data(data[..., :num])
-    return line,
-fig1 = plt.figure()
+# output or not
+flag_movie = False
 
-# Fixing random state for reproducibility
-# np.random.seed(19680801)
-
-data = np.random.rand(2, 25)
-l, = plt.plot([], [], 'r-')
-plt.xlim(0, 1)
-plt.ylim(0, 1)
-plt.xlabel('x')
-plt.title('test')
-line_ani = animation.FuncAnimation(fig1, update_line, 25, fargs=(data, l),
-                                   interval=50, blit=True)
-
+const = 0.01
+p = 1
 
 # Time-stepping
 files = []
 t = 0
 for n in range(num_steps):
+    if flag_dynamic == True:
+        p += dt/c*(p/R+const)
+        p *= 1.3
+        bcp_outflow = DirichletBC(Q, Constant((p)), outflow)
+        bcp = [bcp_outflow]
+        [bc.apply(A2) for bc in bcp]
 
     # Update current time
     t += dt
@@ -216,26 +223,27 @@ for n in range(num_steps):
     b3 = assemble(L3)
     solve(A3, u_.vector(), b3, 'cg', 'sor')
 
-    # Save solution to file (XDMF/HDF5)
-    xdmffile_u.write(u_, t)
-    xdmffile_p.write(p_, t)
+    # # Save solution to file (XDMF/HDF5)
+    # xdmffile_u.write(u_, t)
+    # xdmffile_p.write(p_, t)
 
-    # Save nodal values to file
-    timeseries_u.store(u_.vector(), t)
-    timeseries_p.store(p_.vector(), t)
+    # # Save nodal values to file
+    # timeseries_u.store(u_.vector(), t)
+    # timeseries_p.store(p_.vector(), t)
 
     # Update previous solution
     p_n.assign(p_)
     u_n.assign(u_)
 
-    # # Plot solution
-    plt.cla()
-    plot(p_)
-    plot(u_, title = "Pressure and Velocity")
-    fname = '_tmp%03d.png' % n
-    # print('Saving frame', fname)
-    plt.savefig(fname)
-    files.append(fname)
+    if flag_movie:
+        # # Plot solution
+        plt.cla()
+        plot(p_)
+        plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
+        fname = '_tmp%03d.png' % n
+        # print('Saving frame', fname)
+        plt.savefig(fname)
+        files.append(fname)
     
 
     # Update progress bar
@@ -246,12 +254,18 @@ for n in range(num_steps):
     
 pbar.close()
 
-print('Making movie animation.mpg - this may take a while')
-# subprocess.call("mencoder 'mf://_tmp*.png' -mf type=png:fps=10 -ovc lavc "
-#                 "-lavcopts vcodec=wmv2 -oac copy -o animation.mpg", shell=True)
-subprocess.call("ffmpeg -i _tmp%03d.png -pix_fmt yuv420p output.mp4", shell=True)
+if flag_movie:
+    print('Making movie animation.mpg - this may take a while')
+    # subprocess.call("mencoder 'mf://_tmp*.png' -mf type=png:fps=10 -ovc lavc "
+    #                 "-lavcopts vcodec=wmv2 -oac copy -o animation.mpg", shell=True)
+    subprocess.call("ffmpeg -i _tmp%03d.png -pix_fmt yuv420p ../output/output.mp4", shell=True)
 
-# cleanup
-for fname in files:
-    os.remove(fname)
+    # cleanup
+    for fname in files:
+        os.remove(fname)
+else:
+    plot(p_)
+    plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
+
+    plt.show()
 

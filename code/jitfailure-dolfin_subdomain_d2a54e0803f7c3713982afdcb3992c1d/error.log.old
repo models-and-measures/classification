@@ -1,0 +1,15 @@
+/var/folders/k1/216q5nr56td2vvg1xf5kvl600000gn/T/tmpa73kuvfq/dolfin_subdomain_d2a54e0803f7c3713982afdcb3992c1d.cpp:45:14: warning: unused variable 'pi' [-Wunused-const-variable]
+const double pi = DOLFIN_PI;
+             ^
+1 warning generated.
+ld: warning: ld: warning: ignoring file /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libm.tbd, file was built for unsupported file format ( 0x2D 0x2D 0x2D 0x20 0x21 0x74 0x61 0x70 0x69 0x2D 0x74 0x62 0x64 0x2D 0x76 0x33 ) which is not the architecture being linked (x86_64): /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libm.tbd
+ignoring file /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libdl.tbd, file was built for unsupported file format ( 0x2D 0x2D 0x2D 0x20 0x21 0x74 0x61 0x70 0x69 0x2D 0x74 0x62 0x64 0x2D 0x76 0x33 ) which is not the architecture being linked (x86_64): /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libdl.tbd
+ld: warning: ignoring file /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libpthread.tbd, file was built for unsupported file format ( 0x2D 0x2D 0x2D 0x20 0x21 0x74 0x61 0x70 0x69 0x2D 0x74 0x62 0x64 0x2D 0x76 0x33 ) which is not the architecture being linked (x86_64): /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libpthread.tbd
+ld: warning: ignoring file /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libSystem.tbd, file was built for unsupported file format ( 0x2D 0x2D 0x2D 0x20 0x21 0x74 0x61 0x70 0x69 0x2D 0x74 0x62 0x64 0x2D 0x76 0x33 ) which is not the architecture being linked (x86_64): /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/lib/libSystem.tbd
+Undefined symbols for architecture x86_64:
+  "__Unwind_Resume", referenced from:
+      _create_dolfin_subdomain_d2a54e0803f7c3713982afdcb3992c1d in dolfin_subdomain_d2a54e0803f7c3713982afdcb3992c1d-e8c299.o
+  "___assert_rtn", referenced from:
+      dolfin::dolfin_subdomain_d2a54e0803f7c3713982afdcb3992c1d::inside(Eigen::Ref<Eigen::Matrix<double, -1, 1, 0, -1, 1> const, 0, Eigen::InnerStride<1> >, bool) const in dolfin_subdomain_d2a54e0803f7c3713982afdcb3992c1d-e8c299.o
+ld: symbol(s) not found for architecture x86_64
+clang-4.0: error: linker command failed with exit code 1 (use -v to see invocation)
