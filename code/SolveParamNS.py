@@ -41,9 +41,9 @@ plt.figure()
 plot(mesh)
 # plt.draw()
 # plt.pause(1)
-plt.show()
+# plt.show()
 
-T = 0.4              # final time
+T = 0.3              # final time
 num_steps = 1000   # number of time steps # must satisfy CFL condition
 dt = T / num_steps # time step size
 mu = 0.03         # dynamic viscosity, poise
@@ -187,7 +187,7 @@ A3 = assemble(a3)
 pbar = tqdm(total=T)
 
 # dynamic BC
-flag_dynamic = True
+flag_dynamic = False
 
 # output or not
 flag_movie = False
