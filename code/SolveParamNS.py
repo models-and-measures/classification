@@ -18,6 +18,22 @@ import subprocess
 
 ## TODO: object programming
 
+# dynamic BC
+flag_dynamic = False
+
+# output or not
+flag_movie = False
+
+# Parameters
+T = 0.1              # final time
+num_steps = 100      # number of time steps # must satisfy CFL condition
+dt = T / num_steps  # time step size
+mu = 0.03            # dynamic viscosity, poise
+rho = 1              # density, g/cm3
+c = 1.6e-5
+R = 7501.5
+p_bd = 1.06e5
+
 #### Create mesh
 a=.5
 b=.1
@@ -43,18 +59,9 @@ plot(mesh)
 # plt.pause(1)
 # plt.show()
 
-T = 0.3              # final time
-num_steps = 1000   # number of time steps # must satisfy CFL condition
-dt = T / num_steps # time step size
-mu = 0.03         # dynamic viscosity, poise
-rho = 1            # density, g/cm3
-c = 1.6e-5
-R = 7501.5
-
 # Define function spaces
 V = VectorFunctionSpace(mesh, 'P', 2)
 Q = FunctionSpace(mesh, 'P', 1)
-
 
 # Define boundaries
 inflow   = 'near(x[0], -2.0)'
@@ -103,17 +110,27 @@ def walls(x, on_boundary):
 # '(near(x[0] + x[1], 0.2 - '+f"{B:.17f}"+') && abs(x[0] - x[1] - 2) <= '+f"{A:.17f}"+') '
 
 # Define inflow profile
-inflow_v = ('4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)', '0')
+def inflow_g(t):
+    return '%.7f' % 1
+
+t = 0
+
+def inflow_exp(t):
+    return Expression(('x[1]', '0'), degree = 2)
+# inflow_str = Expression(inflow_g(t)+'*'+inflow_f,degree=2)
+
+# inflow_str = ('4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)', '0')
 
 #### Define boundary conditions
-bcu_inflow = DirichletBC(V, Expression(inflow_v, degree=2), inflow)
+bcu_inflow = DirichletBC(V, Expression(('4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)', '0'),degree=2), inflow)
 bcu_walls = DirichletBC(V, Constant((0, 0)), walls)
 # bcu_cylinder = DirichletBC(V, Constant((0, 0)), cylinder)
-# bcp_outflow1 = DirichletBC(Q, Constant((0)), outflow1)
-# bcp_outflow2 = DirichletBC(Q, Constant((0)), outflow2)
-bcp_outflow = DirichletBC(Q, Constant((0)), outflow)
+bcp_outflow1 = DirichletBC(Q, Constant((0)), outflow1)
+bcp_outflow2 = DirichletBC(Q, Constant((0)), outflow2)
+# bcp_outflow = DirichletBC(Q, Constant((0)), outflow)
 bcu = [bcu_inflow, bcu_walls]
-bcp = [bcp_outflow]
+# bcp = [bcp_outflow]
+bcp = [bcp_outflow1,bcp_outflow2]
 
 #### Define trial and test functions
 u = TrialFunction(V)
@@ -186,25 +203,22 @@ A3 = assemble(a3)
 #set_log_level(PROGRESS)
 pbar = tqdm(total=T)
 
-# dynamic BC
-flag_dynamic = False
-
-# output or not
-flag_movie = False
-
-const = 0.01
-p = 1
+def windkessel_u(u):
+    return ()
 
 # Time-stepping
 files = []
 t = 0
 for n in range(num_steps):
     if flag_dynamic == True:
-        p += dt/c*(p/R+const)
-        p *= 1.3
-        bcp_outflow = DirichletBC(Q, Constant((p)), outflow)
+
+        p_windkessel += dt/c*(p/R+const)
+        p_windkessel *= 1.3
+        bcp_outflow = DirichletBC(Q, Constant((p_windkessel)), outflow)
         bcp = [bcp_outflow]
-        [bc.apply(A2) for bc in bcp]
+
+        # bcu_inflow = DirichletBC(V, inflow_exp(t), inflow)
+        # bcu = [bcu_inflow, bcu_walls]
 
     # Update current time
     t += dt
