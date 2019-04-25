@@ -16,23 +16,25 @@ import matplotlib.pyplot as plt
 import os
 import subprocess
 
+
 ## TODO: object programming
 
 # dynamic BC
-flag_dynamic = False
+flag_dynamic = True
 
 # output or not
-flag_movie = False
+flag_movie = True
 
 # Parameters
-T = 0.1              # final time
-num_steps = 100      # number of time steps # must satisfy CFL condition
+T = 2              # final time
+num_steps = 2000      # number of time steps # must satisfy CFL condition
 dt = T / num_steps  # time step size
 mu = 0.03            # dynamic viscosity, poise
 rho = 1              # density, g/cm3
 c = 1.6e-5
 R = 7501.5
-p_bd = 1.06e5
+p_windkessel_1 = 1.06e5 # large number leads to overflow
+p_windkessel_2 = 1.06e5
 
 #### Create mesh
 a=.5
@@ -53,8 +55,7 @@ domain_vertices = [Point(-2.0, -0.2),
 polygon = Polygon(domain_vertices)
 domain = polygon
 mesh = generate_mesh(domain, 100)
-plt.figure()
-plot(mesh)
+# plot(mesh)
 # plt.draw()
 # plt.pause(1)
 # plt.show()
@@ -115,18 +116,50 @@ def inflow_g(t):
 
 t = 0
 
-def inflow_exp(t):
-    return Expression(('x[1]', '0'), degree = 2)
+# def inflow_exp(t):
+#     return Expression(('x[1]', '0'), degree = 2)
 # inflow_str = Expression(inflow_g(t)+'*'+inflow_f,degree=2)
 
 # inflow_str = ('4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)', '0')
 
+# inflow_str = '4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)'
+# inflow_exp = Expression((inflow_str, '0')
+from scipy.interpolate import interp1d
+
+xp=np.array([0,0.025,0.17,0.3,0.38,0.45,0.55,0.65,0.75,0.9,1])
+yp=np.array([0.17,0.1,1,0.23,0.27,0.0,0.35,0.22,0.22,0.17,0.17])
+xxx=np.linspace(0,1,100)
+f = interp1d(xp, yp,kind='cubic')
+# plt.plot(xxx,f(xxx))
+
+class INFLOW(UserExpression):
+    def set_values(self,fval):
+        self.fval = fval
+    def eval(self, value, x):
+        "Set value[0] to value at point x"
+        tol = 1E-13
+        if x[1]-0.2 < - tol and x[1] + 0.2 > tol:
+            value[0] = self.fval/(x[1] + 0.2)/(0.2 - x[1]) * pow(0.4, 2) *np.exp(-0.5*(np.log((0.2+x[1])/(0.2-x[1]))-0.1)**2)
+        else:
+            value[0] = 0
+        value[1] = 0
+
+    def value_shape(self):
+        return (2,)
+
 #### Define boundary conditions
-bcu_inflow = DirichletBC(V, Expression(('4.0*1.5*(x[1] + 0.2)*(0.2 - x[1]) / pow(0.4, 2)', '0'),degree=2), inflow)
+inflow_expr = INFLOW()
+t = 0
+fval=f(t)
+print(type(fval))
+inflow_expr.set_values(fval)
+bcu_inflow = DirichletBC(V, inflow_expr, inflow)
+
 bcu_walls = DirichletBC(V, Constant((0, 0)), walls)
+
 # bcu_cylinder = DirichletBC(V, Constant((0, 0)), cylinder)
-bcp_outflow1 = DirichletBC(Q, Constant((0)), outflow1)
-bcp_outflow2 = DirichletBC(Q, Constant((0)), outflow2)
+bcp_outflow1 = DirichletBC(Q, Constant((p_windkessel_1)), outflow1)
+bcp_outflow2 = DirichletBC(Q, Constant((p_windkessel_2)), outflow2)
 # bcp_outflow = DirichletBC(Q, Constant((0)), outflow)
 bcu = [bcu_inflow, bcu_walls]
 # bcp = [bcp_outflow]
@@ -151,6 +184,7 @@ f  = Constant((0, 0))
 k  = Constant(dt)
 mu = Constant(mu)
 rho = Constant(rho)
+# print(dt/c*(p/R))
 
 #### Define symmetric gradient
 def epsilon(u):
@@ -203,22 +237,45 @@ A3 = assemble(a3)
 #set_log_level(PROGRESS)
 pbar = tqdm(total=T)
 
-def windkessel_u(u):
-    return ()
+nn=10
+xx1=np.linspace(1.9,2.1,nn)
+yy=np.linspace(-2.1,-1.9,nn)
+xy1=zip(xx1,yy)
+# u_at_bd_1 = [i for i in map(u_,[np.array(i) for i in xy1])]
+# u_normal_1 = map(lambda x:(x[0]-x[1])/np.sqrt(2),u_at_bd_1)
+# u_avg_1 = sum(u_normal)*0.2*2**0.5/nn
+
+xx2=np.linspace(1.9,2.1,nn)
+# yy=np.linspace(2.1,1.9,nn)
+xy2=zip(xx2,yy)
+# u_at_bd_2 = [i for i in map(u_,[np.array(i) for i in xy2])]
+# u_normal_2 = map(lambda x:(x[0]+x[1])/np.sqrt(2),u_at_bd_2)
+# u_avg_2 = sum(u_normal)*0.2*2**0.5/nn
 
 # Time-stepping
 files = []
 t = 0
+
+
 for n in range(num_steps):
     if flag_dynamic == True:
+        u_at_bd_1 = [i for i in map(u_,[np.array(i) for i in xy1])]
+        u_normal_1 = map(lambda x:(x[0]-x[1])/np.sqrt(2),u_at_bd_1)
+        u_avg_1 = sum(u_normal_1)*0.2*2**0.5/nn
 
-        p_windkessel += dt/c*(p/R+const)
-        p_windkessel *= 1.3
-        bcp_outflow = DirichletBC(Q, Constant((p_windkessel)), outflow)
-        bcp = [bcp_outflow]
+        u_at_bd_2 = [i for i in map(u_,[np.array(i) for i in xy2])]
+        u_normal_2 = map(lambda x:(x[0]+x[1])/np.sqrt(2),u_at_bd_2)
+        u_avg_2 = sum(u_normal_2)*0.2*2**0.5/nn
 
-        # bcu_inflow = DirichletBC(V, inflow_exp(t), inflow)
-        # bcu = [bcu_inflow, bcu_walls]
+        p_windkessel_1 += dt/c*(p_windkessel_1/R+u_avg_1)
+        p_windkessel_2 += dt/c*(p_windkessel_2/R+u_avg_1)
+        bcp_outflow1 = DirichletBC(Q, Constant((p_windkessel_1)), outflow1)
+        bcp_outflow2 = DirichletBC(Q, Constant((p_windkessel_1)), outflow2)
+        bcp = [bcp_outflow1,bcp_outflow2]
+
+        inflow_expr.set_values(t)
+        bcu_inflow = DirichletBC(V, inflow_expr, inflow)
+        bcu = [bcu_inflow, bcu_walls]
 
     # Update current time
     t += dt
@@ -264,12 +321,12 @@ for n in range(num_steps):
 #    progress.update(t / T)
     # if n % 20 == 0:
     pbar.update(dt)
-    pbar.set_description('u max:%s' % str(u_.vector().vec().max()))
+    pbar.set_description('u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
     
 pbar.close()
 
 if flag_movie:
-    print('Making movie animation.mpg - this may take a while')
+    print('Making animation - this may take a while')
     # subprocess.call("mencoder 'mf://_tmp*.png' -mf type=png:fps=10 -ovc lavc "
     #                 "-lavcopts vcodec=wmv2 -oac copy -o animation.mpg", shell=True)
     subprocess.call("ffmpeg -i _tmp%03d.png -pix_fmt yuv420p ../output/output.mp4", shell=True)
@@ -278,8 +335,14 @@ if flag_movie:
     for fname in files:
         os.remove(fname)
 else:
-    plot(p_)
-    plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
-
+    import matplotlib.gridspec as gridspec
+    gs = gridspec.GridSpec(1,2, height_ratios=[1], width_ratios=[0.8,0.05])
+    gs.update(left=0.05, right=0.95, bottom=0.08, top=0.93, wspace=0.02, hspace=0.03)
+    
+    ax1 = plt.subplot(gs[0,0])
+    plt1 = plot(p_)
+    plt2 = plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
+    cbax = plt.subplot(gs[0,1])
+    cb = plt.colorbar(cax = cbax, mappable = plt1, orientation = 'vertical', ticklocation = 'right')
     plt.show()
 

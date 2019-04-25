@@ -22,3 +22,6 @@ doc/RIB Changqing Fu.pdf
 *.xdmf
 *.h5
 ref_pde/GLM2018 - copie.pdf
+*.png
+*.cpp
+*.sh
