@@ -30,8 +30,8 @@ flag_dynamic = True
 flag_movie = True
 
 ### Parameters
-T = 2                   # final time
-num_steps = 2000        # number of time steps # must satisfy CFL condition
+T = .1                   # final time
+num_steps = 200        # number of time steps # must satisfy CFL condition
 dt = T / num_steps      # time step size
 mu = 0.03               # dynamic viscosity, poise
 rho = 1                 # density, g/cm3
@@ -43,7 +43,7 @@ p_windkessel_1 = 1.06e5 # init val, large number could lead to overflow
 p_windkessel_2 = 1.06e5 # init val
 a=.5                    # vessel shrink length = 2a
 b=.1                    # vessel shrink intensity = b
-u0=1.
+u0=20
 mesh_precision = 32
 
 #### Create mesh
@@ -65,10 +65,10 @@ domain = polygon
 mesh = generate_mesh(domain, mesh_precision)
 
 ### Plot mesh
-# plot(mesh)
-# plt.draw()
-# plt.pause(1)
-# plt.show()
+plot(mesh)
+plt.draw()
+plt.pause(1)
+plt.show()
 
 ### Define function spaces
 V = VectorFunctionSpace(mesh, 'P', 2)
@@ -96,7 +96,7 @@ def walls(x, on_boundary):
 
 ### Define inflow with heartbeat
 xp=np.array([0,0.025,0.17,0.3,0.38,0.45,0.55,0.65,0.75,0.9,1,1.025])
-yp=np.array([0.17,0.1,1,0.23,0.27,0.0,0.35,0.22,0.22,0.17,0.17,0.1])+.2
+yp=np.array([0.17,0.1,1,0.23,0.27,0.0,0.35,0.22,0.22,0.17,0.17,0.1])
 heartfun0 = interp1d(xp, yp,kind='cubic')
 heartfun = lambda x: heartfun0(x % 1.0)
 # xxx=np.linspace(0,1,100)
@@ -247,32 +247,32 @@ for n in range(num_steps):
     xy2=zip(xx2,yy2)
     xy3=zip(xx3,yy3)
     if flag_dynamic == True:
-        u_at_bd_1 = [u_(np.array(i)) for i in xy1]
-        u_normal_1 = [np.dot(u, np.array([1., 1.])/np.sqrt(2)) for u in u_at_bd_1]
-        u_avg_1 = sum(u_normal_1)/nn*0.2*np.sqrt(2)
+        # u_at_bd_1 = [u_(np.array(i)) for i in xy1]
+        # u_normal_1 = [(x[0]-x[1])/np.sqrt(2) for x in u_at_bd_1]
+        # u_avg_1 = sum(u_normal_1)*0.2*2**0.5/nn
 
-        u_at_bd_2 = [u_(np.array(i)) for i in xy2]
-        u_normal_2 = [np.dot(u, np.array([1., -1.])/np.sqrt(2)) for u in u_at_bd_2]
-        u_avg_2 = sum(u_normal_2)/nn*0.2*np.sqrt(2)
+        # u_at_bd_2 = [u_(np.array(i)) for i in xy2]
+        # u_normal_2 = [(x[0]-x[1])/np.sqrt(2) for x in u_at_bd_2]
+        # u_avg_2 = sum(u_normal_2)*0.2*2**0.5/nn
 
-        # print(p_windkessel_1)
-        p_windkessel_1 += dt/c*(-p_windkessel_1/Rd+u_avg_1)
-        p_windkessel_2 += dt/c*(-p_windkessel_2/Rd+u_avg_2)
+        # # print(u_at_bd_1)
+        # p_windkessel_1 += dt/c*(-p_windkessel_1/Rd+u_avg_1)
+        # p_windkessel_2 += dt/c*(-p_windkessel_2/Rd+u_avg_2)
 
-        p_bdry_1 = p_windkessel_1 + Rp * u_avg_1
-        p_bdry_2 = p_windkessel_2 + Rp * u_avg_2
+        p_bdry_1 = p_windkessel_1 #+ Rp * u_avg_1
+        p_bdry_2 = p_windkessel_2 #+ Rp * u_avg_2
 
         bcp_outflow1 = DirichletBC(Q, Constant((p_bdry_1)), outflow1)
         bcp_outflow2 = DirichletBC(Q, Constant((p_bdry_2)), outflow2)
         bcp = [bcp_outflow1,bcp_outflow2]
 
-        # # print(type(f))
+        # print(type(f))
         heartval=heartfun(t)
         # inflow_expr = Expression('(fval/(x[1] + 0.2)/(0.2 - x[1]) * pow(0.4, 2) *exp(-0.5*(log((0.2+x[1])/(0.2-x[1]))-0.1)**2),0)',
-        #          degree=2, fval=heartval)
+        #          degree=2, fval=fval)
         inflow_expr.set_values(heartval)
-        bcu_inflow = DirichletBC(V, inflow_expr, inflow)
-        bcu = [bcu_inflow, bcu_walls]
+        # bcu_inflow = DirichletBC(V, inflow_expr, inflow)
+        # bcu = [bcu_inflow, bcu_walls]
 
     # Step 1: Tentative velocity step
     b1 = assemble(L1)
@@ -359,13 +359,12 @@ import matplotlib.gridspec as gridspec
 gs = gridspec.GridSpec(1,2, height_ratios=[1], width_ratios=[0.8,0.05])
 gs.update(left=0.05, right=0.95, bottom=0.08, top=0.93, wspace=0.02, hspace=0.03)
 
-# plt.figure()
-# ax1 = plt.subplot(gs[0,0])
-# plt1 = plot(p_)
-# plt2 = plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
-# cbax = plt.subplot(gs[0,1])
-# cb = plt.colorbar(cax = cbax, mappable = plt1, orientation = 'vertical', ticklocation = 'right')
-# plt.show()
+ax1 = plt.subplot(gs[0,0])
+plt1 = plot(p_)
+plt2 = plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
+cbax = plt.subplot(gs[0,1])
+cb = plt.colorbar(cax = cbax, mappable = plt1, orientation = 'vertical', ticklocation = 'right')
+plt.show()
 
 
 if flag_movie:
