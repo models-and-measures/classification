@@ -7,4 +7,4 @@
 #PBS -e  $PBS_JOBID/log.e
 
 cd $PBS_O_WORKDIR
-python3 SolveParamNS.py
+python3 test.py

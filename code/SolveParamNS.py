@@ -22,6 +22,10 @@ import subprocess
 from scipy.interpolate import interp1d
 np.seterr(invalid='raise')
 
+import matplotlib.gridspec as gridspec
+gs = gridspec.GridSpec(1,2, height_ratios=[1], width_ratios=[0.8,0.05])
+gs.update(left=0.05, right=0.95, bottom=0.08, top=0.93, wspace=0.02, hspace=0.03)
+
 ### debugging
 # dynamic BC for debugging
 flag_dynamic = True
@@ -42,7 +46,7 @@ Rp = 7501.5             # proximal resistance
 p_windkessel_1 = 1.06e5 # init val, large number could lead to overflow
 p_windkessel_2 = 1.06e5 # init val
 a=.5                    # vessel shrink length = 2a
-b=.1                    # vessel shrink intensity = b
+b=.0                        # vessel shrink intensity = b
 u0=1.
 mesh_precision = 32
 
@@ -328,6 +332,16 @@ for n in range(num_steps):
 
     if flag_movie:
         # # Plot solution
+        # plt.figure()
+        # plt.cla()
+        # ax1 = plt.subplot(gs[0,0])
+        # plt1 = plot(p_)
+        # plt2 = plot(u_, title = "Pressure and Velocity,t = %.4f" % t)
+        # cbax = plt.subplot(gs[0,1])
+        # cb = plt.colorbar(cax = cbax, mappable = plt1, orientation = 'vertical', ticklocation = 'right')
+
+        
+        # plt.show()
         plt.cla()
         plot(p_)
         plot(u_, title = "t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
@@ -355,9 +369,6 @@ plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 plt.show()
 
 
-import matplotlib.gridspec as gridspec
-gs = gridspec.GridSpec(1,2, height_ratios=[1], width_ratios=[0.8,0.05])
-gs.update(left=0.05, right=0.95, bottom=0.08, top=0.93, wspace=0.02, hspace=0.03)
 
 # plt.figure()
 # ax1 = plt.subplot(gs[0,0])
