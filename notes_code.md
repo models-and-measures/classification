@@ -41,6 +41,17 @@ git fetch origin
 git checkout -b master # --track origin/master # origin/master is clone's default
 ```
 
+# send files from local
+## with rsync
+./send_from_local
+## with scp
+```
+scp username@remote:/file/to/send /where/to/put
+scp fuch@cluster.ceremade.dauphine.fr:~/GitHub/classification/code/temp.png ~/Desktop
+```
+
 # on the server
 cd GitHub/classification/code
 qsub script.pbs
+
+

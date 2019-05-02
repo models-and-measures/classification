@@ -12,10 +12,9 @@ Changqing Fu 2019
     epsilon(u) = (nabla(u) + nabla(u)^T) / 2 = sym(nabla_grad(u))
 """
 ### Import 
-# import mesh_server
 from tqdm import tqdm # status bar
 from dolfin import * # FEM solver
-# from mshr import * # mesh
+from mshr import * # mesh
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -35,18 +34,18 @@ flag_dynamic = True
 flag_movie = True
 
 ### Parameters
-T = 1                   # final time
-num_steps = 2000        # number of time steps # must satisfy CFL condition
+T = .25                   # final time
+num_steps = 250        # number of time steps # must satisfy CFL condition
 dt = T / num_steps      # time step size
 mu = 0.03               # dynamic viscosity, poise
 rho = 1                 # density, g/cm3
 # windkessel
-c = 1 #1.6e-5              # distant capacitance
-Rd = 1e5 #6001.2             # distant resistance
-Rp = 5e4 #7501.5             # proximal resistance
+c = 1.6e-5    # 1          # distant capacitance
+Rd = 60012             # distant resistance
+Rp = 75015             # proximal resistance
 p_windkessel_1 = 1.06e5 # init val, large number could lead to overflow
 p_windkessel_2 = 1.06e5 # init val
-a=.5                      # vessel shrink length = 2a
+a=.5                    # vessel shrink length = 2a
 b=.0                        # vessel shrink intensity = b
 u0=1.
 mesh_precision = 32
@@ -190,9 +189,6 @@ A1 = assemble(a1)
 A2 = assemble(a2)
 A3 = assemble(a3)
 
-#### Apply boundary conditions to matrices
-[bc.apply(A1) for bc in bcu]
-[bc.apply(A2) for bc in bcp]
 
 # # Create XDMF files for visualization output
 # xdmffile_u = XDMFFile('Y_shape_solution/velocity.xdmf')
@@ -279,6 +275,11 @@ for n in range(num_steps):
         inflow_expr.set_values(heartval)
         bcu_inflow = DirichletBC(V, inflow_expr, inflow)
         bcu = [bcu_inflow, bcu_walls]
+
+    
+    #### Apply boundary conditions to matrices
+    [bc.apply(A1) for bc in bcu]
+    [bc.apply(A2) for bc in bcp]
 
     # Step 1: Tentative velocity step
     b1 = assemble(L1)
