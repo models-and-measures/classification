@@ -22,17 +22,24 @@ ssh fuch@cluster.ceremade.dauphine.fr
 
 # clone code from git:
 git clone https://github.com/models-and-measures/classification.git
+## untrack in git
+git rm --cached $FILE
 
 ## for the second time:
+```
+cd ~/GitHub
 git init
 git remote add origin https://github.com/models-and-measures/classification.git
 git fetch origin
 git checkout -b master # --track origin/master # origin/master is clone's default
+```
 ## for the thrid time:
+```
+cd ~/GitHub
 git init
 git fetch origin
 git checkout -b master # --track origin/master # origin/master is clone's default
-
+```
 
 # on the server
 cd GitHub/classification/code
