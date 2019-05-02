@@ -1,5 +1,6 @@
 
 .DS_Store
+*.pyc
 *.doc
 *.pages
 *.numbers
