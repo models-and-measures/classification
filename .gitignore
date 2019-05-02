@@ -1,4 +1,5 @@
 
+*.swp
 .DS_Store
 *.pyc
 *.doc
@@ -6,6 +7,7 @@
 *.numbers
 *.xlsx
 *.docx
+code/.ipynb_checkpoints/
 code/jitfailure*/
 code/__pycache__/
 code/old
