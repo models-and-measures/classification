@@ -12,9 +12,10 @@ Changqing Fu 2019
     epsilon(u) = (nabla(u) + nabla(u)^T) / 2 = sym(nabla_grad(u))
 """
 ### Import 
+# import mesh_server
 from tqdm import tqdm # status bar
 from dolfin import * # FEM solver
-from mshr import * # mesh
+# from mshr import * # mesh
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -34,18 +35,18 @@ flag_dynamic = True
 flag_movie = True
 
 ### Parameters
-T = 2                   # final time
+T = 1                   # final time
 num_steps = 2000        # number of time steps # must satisfy CFL condition
 dt = T / num_steps      # time step size
 mu = 0.03               # dynamic viscosity, poise
 rho = 1                 # density, g/cm3
 # windkessel
-c = 1.6e-5              # distant capacitance
-Rd = 6001.2             # distant resistance
-Rp = 7501.5             # proximal resistance
+c = 1 #1.6e-5              # distant capacitance
+Rd = 1e5 #6001.2             # distant resistance
+Rp = 5e4 #7501.5             # proximal resistance
 p_windkessel_1 = 1.06e5 # init val, large number could lead to overflow
 p_windkessel_2 = 1.06e5 # init val
-a=.5                    # vessel shrink length = 2a
+a=.5                      # vessel shrink length = 2a
 b=.0                        # vessel shrink intensity = b
 u0=1.
 mesh_precision = 32
@@ -107,9 +108,10 @@ heartfun = lambda x: heartfun0(x % 1.0)
 # plt.plot(xxx,heartfun(xxx))
 # Define inflow shape
 class INFLOW(UserExpression):
-    def __init__(self, u0, **kwargs):
+    def __init__(self, u0, s, **kwargs):
         super().__init__(**kwargs) #super makes sure all superclass are initiated...
         self.u0 = u0
+        self.s = s
     def set_values(self,heartval):
         self.fval = heartval # heart signal (period = 1s)
     def eval(self, values, x):
@@ -117,14 +119,14 @@ class INFLOW(UserExpression):
         tol = 1E-13
         if x[1]-0.2 < - tol and x[1] + 0.2 > tol:
             # print(self.fval/(x[1] + 0.2)/(0.2 - x[1]) * pow(0.4, 2) *np.exp(-0.5*(np.log((0.2+x[1])/(0.2-x[1]))-0.1)**2))
-            values[0] = self.u0*self.fval/(x[1] + 0.2)/(0.2 - x[1]) * pow(0.4, 2) *np.exp(-0.5*(np.log((0.2+x[1])/(0.2-x[1]))-0.1)**2)
+            values[0] = self.u0*self.fval/(x[1] + 0.2)/(0.2 - x[1]) * pow(0.4, 2) *np.exp(-0.5*(np.log((0.2+x[1])/(0.2-x[1]))-self.s)**2)
         else:
             values[0] = 0
         values[1] = 0
     def value_shape(self):
         return (2,)
 
-inflow_expr = INFLOW(u0)
+inflow_expr = INFLOW(u0,0.0)
 t = 0
 heartval=heartfun(t)
 # print(type(fval))
@@ -340,7 +342,7 @@ for n in range(num_steps):
         # cbax = plt.subplot(gs[0,1])
         # cb = plt.colorbar(cax = cbax, mappable = plt1, orientation = 'vertical', ticklocation = 'right')
 
-        
+
         # plt.show()
         plt.cla()
         plot(p_)

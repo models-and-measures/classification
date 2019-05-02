@@ -19,3 +19,18 @@ dock rm [id]
 jupyter notebook --ip 0.0.0.0
 
 ssh fuch@cluster.ceremade.dauphine.fr
+
+# clone code from git:
+git clone https://github.com/models-and-measures/classification.git
+
+# for the second time:
+git init
+git remote add origin https://github.com/models-and-measures/classification.git
+git fetch origin
+git checkout -b master # --track origin/master # origin/master is clone's default
+
+#########################
+# on the server
+cd GitHub/classification/code
+qsub script.pbs
+#########################
