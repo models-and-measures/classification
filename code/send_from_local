@@ -1,0 +1,6 @@
+#!/bin/bash
+# WARNING: this is to send files to remote server, do not run this script on server
+
+# rsync -avz *.py cluster:~/GitHub/classification/code/
+rsync -avz {*.py,*.pbs} fuch@cluster.ceremade.dauphine.fr:~/GitHub/classification/code/
+

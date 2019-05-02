@@ -1,4 +1,0 @@
-#!/bin/bash
-
-rsync -avz *.py cluster:~/GitHub/classification/code/
-

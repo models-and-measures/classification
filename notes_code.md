@@ -23,9 +23,13 @@ ssh fuch@cluster.ceremade.dauphine.fr
 # clone code from git:
 git clone https://github.com/models-and-measures/classification.git
 
-# for the second time:
+## for the second time:
 git init
 git remote add origin https://github.com/models-and-measures/classification.git
+git fetch origin
+git checkout -b master # --track origin/master # origin/master is clone's default
+## for the thrid time:
+git init
 git fetch origin
 git checkout -b master # --track origin/master # origin/master is clone's default
 

@@ -5,6 +5,8 @@
 *.numbers
 *.xlsx
 *.docx
+jitfailure*/*
+__pycache__/*
 doc/attestation-securite-sociale-smerep.pdf
 doc/carte_séjour.pdf
 doc/M2_convention_de_stage.pdf
