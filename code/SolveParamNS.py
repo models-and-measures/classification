@@ -33,20 +33,20 @@ flag_dynamic = True
 # output movie or not
 flag_movie = True
 
-### Parameters
-T = .25                   # final time
-num_steps = 250        # number of time steps # must satisfy CFL condition
+## Parameters
+T = .2                 # final time
+num_steps = 200         # number of time steps # must satisfy CFL condition
 dt = T / num_steps      # time step size
 mu = 0.03               # dynamic viscosity, poise
 rho = 1                 # density, g/cm3
 # windkessel
-c = 1.6e-5    # 1          # distant capacitance
-Rd = 60012             # distant resistance
-Rp = 75015             # proximal resistance
-p_windkessel_1 = 1.06e5 # init val, large number could lead to overflow
-p_windkessel_2 = 1.06e5 # init val
+c = 5e-4#1.6e-5    # 1          # distant capacitance
+Rd = 24000#60012             # distant resistance
+Rp = Rd*1.2#75015             # proximal resistance
+p_windkessel_1 = 2000#1.06e5 # init val, large number could lead to overflow
+p_windkessel_2 = 2000#1.06e5 # init val
 a=.5                    # vessel shrink length = 2a
-b=.0                        # vessel shrink intensity = b
+b=.1                        # vessel shrink intensity = b
 u0=1.
 mesh_precision = 32
 
@@ -207,10 +207,10 @@ nn=10
 tol=1e-6
 xx0=-1*np.ones(nn)
 yy0=np.linspace(-.2 +tol,.2  -tol,nn)
-xx1=np.linspace(1.9 +tol,2.1 -tol,nn)
-yy1=np.linspace(-2.1+tol,-1.9-tol,nn)
-xx2=np.linspace(1.9 +tol,2.1 -tol,nn)
-yy2=np.linspace(2.1 -tol,1.9 +tol,nn)
+xx1=np.linspace(1.9 +tol-.1,2.1 -tol-.1,nn)
+yy1=np.linspace(2.1 -tol-.1,1.9 +tol-.1,nn)
+xx2=np.linspace(1.9 +tol-.1,2.1 -tol-.1,nn)
+yy2=np.linspace(-2.1+tol+.1,-1.9-tol+.1,nn)
 xx3=np.linspace(0.0 +tol,0.2 -tol,nn)
 yy3=np.linspace(-0.2+tol,0.0 -tol,nn)
 xy0=zip(xx0,yy0)
@@ -252,17 +252,19 @@ for n in range(num_steps):
         u_at_bd_1 = [u_(np.array(i)) for i in xy1]
         u_normal_1 = [np.dot(u, np.array([1., 1.])/np.sqrt(2)) for u in u_at_bd_1]
         u_avg_1 = sum(u_normal_1)/nn*0.2*np.sqrt(2)
+        # print(u_avg_1)
 
         u_at_bd_2 = [u_(np.array(i)) for i in xy2]
         u_normal_2 = [np.dot(u, np.array([1., -1.])/np.sqrt(2)) for u in u_at_bd_2]
         u_avg_2 = sum(u_normal_2)/nn*0.2*np.sqrt(2)
+        # print(u_avg_2)
 
         # print(p_windkessel_1)
-        p_windkessel_1 += dt/c*(-p_windkessel_1/Rd+u_avg_1)
-        p_windkessel_2 += dt/c*(-p_windkessel_2/Rd+u_avg_2)
 
-        p_bdry_1 = p_windkessel_1 + Rp * u_avg_1
-        p_bdry_2 = p_windkessel_2 + Rp * u_avg_2
+
+        p_bdry_1 =   Rp * u_avg_1
+        p_bdry_2 =   Rp * u_avg_2
+        # print(p_bdry_1,p_bdry_2)
 
         bcp_outflow1 = DirichletBC(Q, Constant((p_bdry_1)), outflow1)
         bcp_outflow2 = DirichletBC(Q, Constant((p_bdry_2)), outflow2)
@@ -348,7 +350,7 @@ for n in range(num_steps):
         plt.cla()
         plot(p_)
         plot(u_, title = "t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
-        fname = '_tmp%03d.png' % n
+        fname = '_tmp%04d.png' % n
         # print('Saving frame', fname)
         plt.savefig(fname)
         files.append(fname)
@@ -386,8 +388,8 @@ if flag_movie:
     print('Making animation - this may take a while')
     # subprocess.call("mencoder 'mf://_tmp*.png' -mf type=png:fps=10 -ovc lavc "
     #                 "-lavcopts vcodec=wmv2 -oac copy -o animation.mpg", shell=True)
-    subprocess.call("ffmpeg -i _tmp%03d.png -pix_fmt yuv420p ../output/output.mp4", shell=True)
+    subprocess.call("ffmpeg -i _tmp%04d.png -pix_fmt yuv420p ../output/output.mp4", shell=True)
 
-    # cleanup
-    for fname in files:
-        os.remove(fname)
+    # # cleanup
+    # for fname in files:
+    #     os.remove(fname)
