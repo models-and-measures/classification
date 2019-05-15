@@ -10,15 +10,6 @@ if os.environ.get('DISPLAY','') == '':
     mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-
-#### Define symmetric gradient
-def epsilon(u):
-    return sym(nabla_grad(u))
-
-#### Define stress tensor
-def sigma(u, p):
-    return 2*mu*epsilon(u) - p*Identity(len(u))
-
 def linspace_2d(p1,p2,nn=6):
     xx = np.linspace(p1[0],p2[0],nn)
     yy = np.linspace(p1[1],p2[1],nn)
@@ -40,6 +31,11 @@ def flux(u,p1,p2,theta,arclength,nn=6):
     # print(out)
     # print()
     return out
+
+def integrate_over_line(p,p1,p2,arclength,nn=6):
+    grid = linspace_2d(p1,p2,nn)
+    funval = eval_fun(p,grid)
+    out = sum(funval)/nn*arclength
 
 def plot_solution(u_,p_,fname = "solution.pdf",vmin=0, vmax=150):
     import matplotlib
@@ -92,7 +88,6 @@ def compute_NSsolution(mesh,
     k  = Constant(dt)
     mu = Constant(mu)
     rho = Constant(rho)
-    # print(dt/c*(p/R))
 
     #### Define symmetric gradient
     def epsilon(u):
@@ -124,27 +119,45 @@ def compute_NSsolution(mesh,
     A2 = assemble(a2)
     A3 = assemble(a3)
 
+
+    tol=.001
+    ### Flux surface for u
+    p1_healthy = np.array([length*2-tol,tol])
+    p1_healthy = rotate(theta_healthy,p1_healthy)
+    p2_healthy = np.array([length*2-tol,diam_healthy_vessel - tol])
+    p2_healthy = rotate(theta_healthy,p2_healthy)
+    p1_steno = np.array([length*2-tol,-tol])
+    p1_steno = rotate(-theta_steno,p1_steno)
+    p2_steno = np.array([length*2-tol,-diam_steno_vessel + tol])
+    p2_steno = rotate(-theta_steno,p2_steno)
+
+    ### Diagnosis surface for p
+    p1_steno_before = np.array([length*2-tol,-tol])
+    p1_steno_before = rotate(-theta_steno,p1_steno)
+    p2_steno_before = np.array([length*2-tol,-diam_steno_vessel + tol])
+    p2_steno_before = rotate(-theta_steno,p2_steno)
+    p1_steno_after = np.array([length*2-tol,-tol])
+    p1_steno_after = rotate(-theta_steno,p1_steno)
+    p2_steno_after = np.array([length*2-tol,-diam_steno_vessel + tol])
+    p2_steno_after = rotate(-theta_steno,p2_steno)
+
+    ### status bar
     pbar = tqdm(total=T)
 
     ### Time-stepping
     t = 0.0
     files = []
+    flux_healthy = []
+    flux_stenosis = []
+    p_int_inflow = []
+    p_int_before_stenosis = []
+    p_int_after_stenosis = []
+    p_int_healthy = []
     for n in range(num_steps):
         # Update current time
         t += dt
-        heartval=heartfun(t)
-        tol=.001
-        p1_healthy = np.array([length*2-tol,tol])
-        p1_healthy = rotate(theta_healthy,p1_healthy)
-        p2_healthy = np.array([length*2-tol,diam_healthy_vessel - tol])
-        p2_healthy = rotate(theta_healthy,p2_healthy)
         u_avg_1 = flux(u_,p1_healthy,p2_healthy,theta_healthy,diam_healthy_vessel)
-        p1_steno = np.array([length*2-tol,-tol])
-        p1_steno = rotate(-theta_steno,p1_steno)
-        p2_steno = np.array([length*2-tol,-diam_steno_vessel + tol])
-        p2_steno = rotate(-theta_steno,p2_steno)
         u_avg_2 = flux(u_,p1_steno,p2_steno,-theta_steno,diam_steno_vessel)
-
         delta1 = dt/c*(-p_windkessel_1/Rd+u_avg_1)
         # delta_windkessel1.append(delta1)
         p_windkessel_1 += delta1
@@ -177,6 +190,13 @@ def compute_NSsolution(mesh,
         p_n.assign(p_)
         u_n.assign(u_)
 
+        # diagnosis on p
+        p_int_inflow = []
+        p_int_before_stenosis = []
+        p_int_after_stenosis = []
+        p_int_healthy = []
+        integrate_over_line(p,p1,p2,diam_steno_vessel)
+
         # Update progress bar
         pbar.update(dt)
         pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
@@ -192,6 +212,11 @@ def compute_NSsolution(mesh,
 def cleanup(files):
     for fname in files:
         os.remove(fname)
+
+def movie():
+    # print('Making animation - this may take a while')
+    subprocess.call("ffmpeg -i ./tmp/_tmp%05d.png -r 60 -pix_fmt yuv420p ../output/output.mp4", shell=True)
+
 
 if __name__ == '__main__':
     mesh_precision = 40
@@ -209,25 +234,8 @@ if __name__ == '__main__':
     p_windkessel_2 = 1 ,
     u0=1                  ,
     flag_movie = flag_movie)
-
     print('NS computation test passed.')
-
     if flag_movie:
-        print('Making animation - this may take a while')
-        # subprocess.call("mencoder 'mf://_tmp*.png' -mf type=png:fps=10 -ovc lavc "
-        #                 "-lavcopts vcodec=wmv2 -oac copy -o animation.mpg", shell=True)
-        subprocess.call("ffmpeg -i ./tmp/_tmp%05d.png -r 60 -pix_fmt yuv420p ../output/output.mp4", shell=True)
-
+        movie()
         # cleanup
         cleanup(files)
-
-        # plot_solution(u_,p_)
-    # xy0 = slice(x0)
-    # xy1 = slice(x1)
-    # xy2 = slice(x2)
-    # xy3 = slice(x3)
-    # average_over_line(p_,xy0)
-    # average_over_line(p_,xy1)
-    # average_over_line(p_,xy2)
-    # average_over_line(p_,xy3)
-    # print("test completed.")

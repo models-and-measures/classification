@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Geometry of an artery bifurcation
-
 Olga Mula 2019
 Modified by Changqing Fu
 """
@@ -150,7 +149,6 @@ if __name__ == '__main__':
 
     mesh_precision = 40
     # artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
-    mesh = Artery().mesh(mesh_precision,theta_steno = theta_steno, theta_healthy = theta_healthy)
+    mesh = Artery().mesh(mesh_precision)
     plot(mesh, title='stenosis')
     plt.savefig('mesh.pdf')
-
