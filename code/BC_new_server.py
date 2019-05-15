@@ -23,7 +23,7 @@ def inflow_domain(x, on_boundary):
 
 ### Define inflow with heartbeat
 xp=np.array([0,0.025,0.17,0.3,0.38,0.45,0.55,0.65,0.75,0.9,1,1.025])
-yp=np.array([0.17,0.1,1,0.23,0.27,0.0,0.35,0.22,0.22,0.17,0.17,0.1])+.2
+yp=np.array([0.17,0.1,1,0.23,0.27,0.0,0.35,0.22,0.22,0.17,0.17,0.1])#+.2
 heartfun0 = interp1d(xp, yp,kind='cubic')
 heartfun = lambda x: heartfun0(x % 1.0)
 
