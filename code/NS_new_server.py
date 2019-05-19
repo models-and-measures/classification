@@ -191,11 +191,11 @@ def compute_NSsolution(mesh,
         u_n.assign(u_)
 
         # diagnosis on p
-        p_int_inflow = []
-        p_int_before_stenosis = []
-        p_int_after_stenosis = []
-        p_int_healthy = []
-        integrate_over_line(p,p1,p2,diam_steno_vessel)
+        p_int_inflow           .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
+        p_int_before_stenosis  .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
+        p_int_after_stenosis   .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
+        p_int_healthy          .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
+
 
         # Update progress bar
         pbar.update(dt)
