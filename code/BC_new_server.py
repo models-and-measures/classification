@@ -164,7 +164,7 @@ if __name__ == '__main__':
     Q = FunctionSpace(mesh, 'P', 1)
     t = 0.
 
-    bcu, bcp = compute_bc(V,Q,t)
+    bcu, bcp = compute_bc(V,Q,t,p_bdry_1,p_bdry_2,u0,s,inflow_expr,inflow_domain,heartfun,)
 
     print('BC computation test passed.')
 
