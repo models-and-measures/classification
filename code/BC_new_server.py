@@ -111,13 +111,13 @@ def walls(x, on_boundary):
     return on_boundary and (wall_healthy(x) or wall_steno(x) or wall_trunk(x))
 
 def compute_bc(V,Q,t,
-            p_bdry_1 =p_windkessel_1,
-            p_bdry_2 =p_windkessel_2,
-            u0=u0,
-            s=s,
-            inflow_expr=inflow_expr,
-            inflow_domain=inflow_domain,
-            heartfun=heartfun,
+            p_bdry_1,
+            p_bdry_2,
+            u0,
+            s,
+            inflow_expr,
+            inflow_domain,
+            heartfun,
             # bcu_walls=bcu_walls
             ):
     "In: V, Q. Out: boundary condition"
