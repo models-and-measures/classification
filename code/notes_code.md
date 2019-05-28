@@ -3,19 +3,35 @@ conda activate fenicsproject
 conda deactivate
 #### conda-fenics is said to be incomplete; abandoned
 
-# run from dock:
-fenicsproject run
+# GCP machine 
+ssh fenics.us-east1-b.deeplearning201906
+
+## configuration
+gcloud compute config-ssh
+
+# run from docker (choose one):
+fenicsproject start evergreen -i
+fenicsproject start notebook
+fenicsproject start notebook -i
+sudo /home/evergreen/.local/bin/fenicsproject start notebook  -i
+
+## for the first time:
+fenicsproject create evergreen
+or:
+fenicsproject run stable:current
+or:
+fenicsproject run stable:current python3 file.py (can't output)
 
 # notebook
 ##background
-docker run --name notebook -w /home/fenics -v $(pwd):/home/fenics/shared -d -p 127.0.0.1:8888:8888 quay.io/fenicsproject/stable 'jupyter-notebook --ip=0.0.0.0'
+docker create --name notebook -w /home/fenics -v $(pwd):/home/fenics/shared -d -p 127.0.0.1:8888:8888 quay.io/fenicsproject/stable:current 'jupyter-notebook --ip=0.0.0.0'
 ## foreground
-docker run --name notebook -w /home/fenics -v $(pwd):/home/fenics/shared -p 127.0.0.1:8888:8888 quay.io/fenicsproject/stable 'jupyter-notebook --ip=0.0.0.0'
+docker create --name notebook -w /home/fenics -v $(pwd):/home/fenics/shared -p 127.0.0.1:8888:8888 quay.io/fenicsproject/stable:current 'jupyter-notebook --ip=0.0.0.0'
 docker start notebook 
 docker stop notebook 
 docker ps -a
 dock rm [id]
-#alternative for access to container
+# alternative for access to container
 jupyter notebook --ip 0.0.0.0
 
 ssh fuch@cluster.ceremade.dauphine.fr
@@ -54,4 +70,7 @@ scp fuch@cluster.ceremade.dauphine.fr:~/GitHub/classification/code/temp.png ~/De
 cd GitHub/classification/code
 qsub script.pbs
 
+# manage Docker machine with portainer:
+docker run -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer
 
+## then visit http://0.0.0.0:9000

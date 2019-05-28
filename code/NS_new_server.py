@@ -37,7 +37,7 @@ def integrate_over_line(p,p1,p2,arclength,nn=6):
     funval = eval_fun(p,grid)
     out = sum(funval)/nn*arclength
 
-def plot_solution(u_,p_,fname = "solution.pdf",vmin=0, vmax=150):
+def plot_solution(u_,p_,fname = "solution.pdf",vmin=5000, vmax=12000):
     import matplotlib
     import matplotlib.gridspec as gridspec
     gs = gridspec.GridSpec(1,2, height_ratios=[1], width_ratios=[0.8,0.05])
@@ -119,8 +119,17 @@ def compute_NSsolution(mesh,
     A2 = assemble(a2)
     A3 = assemble(a3)
 
-
     tol=.001
+
+    # def find_endpoint(x,y,Y,theta,tol_narrow = tol, tol_shift = tol):
+    # # find endpoints of diagnosis line
+    #     p1 = np.array([x-tol_shift,y + tol_narrow])
+    #     p1 = rotate(theta,out)
+    #     p1 = np.array([x-tol_shift,Y - tol_narrow])
+    #     p1 = rotate(theta,out)
+    #     return out
+
+    # Points:
     ### Flux surface for u
     p1_healthy = np.array([length*2-tol,tol])
     p1_healthy = rotate(theta_healthy,p1_healthy)
@@ -191,11 +200,10 @@ def compute_NSsolution(mesh,
         u_n.assign(u_)
 
         # diagnosis on p
-        p_int_inflow           .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
-        p_int_before_stenosis  .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
-        p_int_after_stenosis   .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
-        p_int_healthy          .append(integrate_over_line(p_,p1_steno_before,p2_steno_before,diam_steno_vessel))
-
+        # # p_int_inflow            .append(integrate_over_line(p_,p1_int_inflow    ,p2_int_inflow      ,diam_trunk))
+        # p_int_before_stenosis   .append(integrate_over_line(p_,p1_steno_before  ,p2_steno_before    ,diam_steno_vessel))
+        # p_int_after_stenosis    .append(integrate_over_line(p_,p1_steno_after   ,p2_steno_after     ,diam_steno_vessel))
+        # p_int_healthy           .append(integrate_over_line(p_,p1_healthy       ,p2_healthy         ,diam_healthy_vessel))
 
         # Update progress bar
         pbar.update(dt)
@@ -223,16 +231,29 @@ if __name__ == '__main__':
     flag_movie = True
     mesh = Artery().mesh(mesh_precision)
     # bcu, bcp = compute_bc(V,Q,0.)
-    u_,p_,files = compute_NSsolution(mesh,T=1,num_steps = 1000,
+    # u_,p_,files = compute_NSsolution(mesh,T=1,num_steps = 1000,
+    # mu = 0.03               ,
+    # rho = 1                 ,
+    # # windkessel,
+    # c = 1                   ,
+    # Rd = 1                ,
+    # Rp = 1                ,
+    # p_windkessel_1 = 1 ,
+    # p_windkessel_2 = 1 ,
+    # u0=1                  ,
+    # flag_movie = flag_movie)
+    u_,p_,files = compute_NSsolution(mesh,
+    T = .3                  ,
+    num_steps = 300         ,
     mu = 0.03               ,
     rho = 1                 ,
     # windkessel,
-    c = 1                   ,
-    Rd = 1                ,
-    Rp = 1                ,
-    p_windkessel_1 = 1 ,
-    p_windkessel_2 = 1 ,
-    u0=1                  ,
+    c = 1.6e-5              ,
+    Rd = 60012              ,
+    Rp = 7501.5             ,
+    p_windkessel_1 = 1.06e5 ,
+    p_windkessel_2 = 1.06e5 ,
+    u0=20.                  ,
     flag_movie = flag_movie)
     print('NS computation test passed.')
     if flag_movie:

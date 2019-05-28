@@ -10,6 +10,14 @@ Incremental Pressure Correction Scheme (IPCS).
 from __future__ import print_function
 from fenics import *
 import numpy as np
+from tqdm import tqdm # status bar
+# import matplotlib as mpl
+# import os
+# if os.environ.get('DISPLAY','') == '':
+#     print('no display found. Using non-interactive Agg backend')
+#     mpl.use('Agg')
+import sys
+import matplotlib.pyplot as plt
 
 T = 10.0           # final time
 num_steps = 500    # number of time steps
@@ -30,7 +38,7 @@ walls   = 'near(x[1], 0) || near(x[1], 1)'
 # Define boundary conditions
 bcu_noslip  = DirichletBC(V, Constant((0, 0)), walls)
 bcp_inflow  = DirichletBC(Q, Constant(8), inflow)
-bcp_outflow = DirichletBC(Q, Constant(0), outflow)
+bcp_outflow = DirichletBC(Q, Constant(3), outflow)
 bcu = [bcu_noslip]
 bcp = [bcp_inflow, bcp_outflow]
 
@@ -88,6 +96,9 @@ A3 = assemble(a3)
 [bc.apply(A1) for bc in bcu]
 [bc.apply(A2) for bc in bcp]
 
+### status bar
+pbar = tqdm(total=T)
+
 # Time-stepping
 t = 0
 for n in range(num_steps):
@@ -115,13 +126,23 @@ for n in range(num_steps):
     # Compute error
     u_e = Expression(('4*x[1]*(1.0 - x[1])', '0'), degree=2)
     u_e = interpolate(u_e, V)
-    error = np.abs(u_e.vector().array() - u_.vector().array()).max()
-    print('t = %.2f: error = %.3g' % (t, error))
-    print('max u:', u_.vector().array().max())
+    # error = np.abs(u_e.vector().array() - u_.vector().array()).max()
+    # print('t = %.2f: error = %.3g' % (t, error))
+    # print('max u:', u_.vector().array().max())
+    sys.stdout.write('>')
 
     # Update previous solution
     u_n.assign(u_)
     p_n.assign(p_)
 
+    # Update progress bar
+    pbar.update(dt)
+    pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
+
+
+pbar.close()
+
 # Hold plot
-interactive()
+# interactive()
+plot(p_)
+plt.savefig('temp.pdf')

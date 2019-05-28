@@ -18,6 +18,7 @@ diam_healthy_vessel=0.1
 theta_healthy=-np.pi/6
 length0 = .5
 length = .3
+diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
 
 class Artery():
     def __init__(self, diam_steno_vessel=0.1, diam_narrow=0.04, theta_steno=np.pi/6, diam_healthy_vessel=0.1, theta_healthy=np.pi/6,length0 = .5,length = .3):
