@@ -4,7 +4,11 @@ Geometry of an artery bifurcation
 Olga Mula 2019
 Modified by Changqing Fu
 """
-
+import matplotlib as mpl
+if os.environ.get('DISPLAY','') == '':
+    print('no display found. Using non-interactive Agg backend')
+    mpl.use('Agg')
+import matplotlib.pyplot as plt
 from mshr import * # mesh
 from dolfin import * # FEM solver
 import numpy as np
