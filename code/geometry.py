@@ -4,6 +4,7 @@ Geometry of an artery bifurcation
 Olga Mula 2019
 Modified by Changqing Fu
 """
+import os
 import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
@@ -134,11 +135,6 @@ class Artery():
 
 
 if __name__ == '__main__':
-    import matplotlib as mpl
-    if os.environ.get('DISPLAY','') == '':
-        print('no display found. Using non-interactive Agg backend')
-        mpl.use('Agg')
-    import matplotlib.pyplot as plt
     # variables
     diam_steno_vessel=0.1
     diam_narrow=0.02
