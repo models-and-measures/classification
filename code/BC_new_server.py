@@ -55,7 +55,6 @@ class INFLOW(UserExpression):
     def value_shape(self):
         return (2,)
 
-inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
 # bcu_walls = DirichletBC(V, Constant((0, 0)), walls)
 
 def rotate(theta,x):
@@ -158,6 +157,9 @@ if __name__ == '__main__':
 
     plot(mesh, title='stenosis')
     plt.savefig('mesh.pdf')
+
+    inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
+
     V = VectorFunctionSpace(mesh, 'P', 2)
     Q = FunctionSpace(mesh, 'P', 1)
     t = 0.
