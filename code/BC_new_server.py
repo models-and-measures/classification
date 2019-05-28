@@ -155,8 +155,8 @@ if __name__ == '__main__':
     artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
     mesh = artery.mesh(mesh_precision)
 
-    plot(mesh, title='stenosis')
-    plt.savefig('mesh.pdf')
+    # plot(mesh, title='stenosis')
+    # plt.savefig('mesh.pdf')
 
     inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
 
