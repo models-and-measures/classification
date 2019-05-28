@@ -163,24 +163,17 @@ if __name__ == '__main__':
     p_windkessel_2 = 1.06e5 # init val
     u0 = 2.                 # init amplitude
     s = .5                  # init asymmetry
-    # global variables
-    # diam_steno_vessel=0.1
-    # diam_narrow=0.04
-    # theta_steno=np.pi/6
-    # diam_healthy_vessel=0.1
-    # theta_healthy=np.pi/6
-    # length0 = .5
-    # length = .3
-    # diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
-
-    artery = Artery(diam_steno_vessel=0.1, 
-        diam_narrow=0.04, 
-        theta_steno=np.pi/6, 
-        diam_healthy_vessel=0.1, 
-        theta_healthy=np.pi/6, 
-        length0 = .5,
-        length = .3
-        )
+    
+    diam_steno_vessel=0.1
+    diam_narrow=0.02
+    theta_steno=np.pi/6
+    diam_healthy_vessel=0.1
+    theta_healthy=np.pi/6
+    length0 = .5
+    length = .3
+    diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
+    mesh_precision = 40
+    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
     mesh = artery.mesh(mesh_precision)
 
     # import matplotlib.pyplot as plt

@@ -8,7 +8,7 @@ Modified by Changqing Fu
 
 
 from dolfin import * # FEM solver
-from mshr import * # mesh
+# from mshr import * # mesh
 import numpy as np
 
 

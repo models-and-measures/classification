@@ -129,7 +129,10 @@ def compute_NSsolution_mini(mesh,
     # Configure solver
     w = Function(Mini)
 
-    tol=.000001
+    inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
+    
+
+    # tol=.000001
 
     # def find_endpoint(x,y,Y,theta,tol_narrow = tol, tol_shift = tol):
     # # find endpoints of diagnosis line
@@ -173,8 +176,6 @@ def compute_NSsolution_mini(mesh,
     p_int_after_stenosis = []
     p_int_healthy = []
     num_plot = 0
-    inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
-    t = 0.
     for n in range(num_steps):
         # Update current time
         t += dt
@@ -253,34 +254,52 @@ def movie():
 
 
 if __name__ == '__main__':
-    mesh_precision = 40
-    u0 = 1.                 # init amplitude
-    s = .5                  # init asymmetry
-    artery = Artery(diam_steno_vessel=0.1, 
-        diam_narrow=0., 
-        theta_steno=np.pi/6, 
-        diam_healthy_vessel=0.1, 
-        theta_healthy=np.pi/6,
-        length0 = .5,
-        length = .3)
-    mesh = artery.mesh(mesh_precision)
-    Mini = compute_mini(mesh)
-    u0,p0,files = compute_NSsolution_mini(mesh,
-    T = 1                  ,
+    T = 1
     num_steps = 1200         ,
     mu = 0.03               ,
     rho = 1                 ,
-    # # windkessel,
-    c = 1                   ,
-    Rd = 1                ,
-    Rp = 1                ,
-    p_windkessel_1 = 1 ,
-    p_windkessel_2 = 1 ,
-    u0=1.                  ,
     flag_movie = True,
     with_teman = False,
-    with_bf_est = True,
-    freq_plot = 1)
+    with_bf_est = False,
+    freq_plot = 1
+    # # windkessel,
+    c = 1                   #1.6e-5 distant capacitance
+    Rd = 1#1e5                #6001.2 distant resistance
+    Rp = 1#5e4                #7501.5 proximal resistance
+    p_windkessel_1 = 1#1.06e5 # init val, large number could lead to overflow
+    p_windkessel_2 = 1#1.06e5 # init val
+    u0 = 1#2.                 # init amplitude
+    s = .5                  # init asymmetry
+
+    diam_steno_vessel=0.1
+    diam_narrow=0.02
+    theta_steno=np.pi/6
+    diam_healthy_vessel=0.1
+    theta_healthy=np.pi/6
+    length0 = .5
+    length = .3
+    diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
+    mesh_precision = 40
+    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
+    mesh = artery.mesh(mesh_precision)
+
+    Mini = compute_mini(mesh)
+    u0,p0,files = compute_NSsolution_mini(mesh,
+    T = T                  ,
+    num_steps = num_steps         ,
+    mu = mu               ,
+    rho = rho                 ,
+    # # windkessel,
+    c = c                   ,
+    Rd = Rd                ,
+    Rp = Rp                ,
+    p_windkessel_1 = p_windkessel_1 ,
+    p_windkessel_2 = p_windkessel_2 ,
+    u0=u0                  ,
+    flag_movie = flag_movie,
+    with_teman = with_teman,
+    with_bf_est = with_bf_est,
+    freq_plot = freq_plot)
     print('NS computation test passed.')
     if flag_movie:
         movie()

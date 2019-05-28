@@ -129,7 +129,7 @@ for n in range(num_steps):
     # error = np.abs(u_e.vector().array() - u_.vector().array()).max()
     # print('t = %.2f: error = %.3g' % (t, error))
     # print('max u:', u_.vector().array().max())
-    sys.stdout.write('>')
+    # sys.stdout.write('>')
 
     # Update previous solution
     u_n.assign(u_)

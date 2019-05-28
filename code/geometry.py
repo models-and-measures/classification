@@ -5,20 +5,10 @@ Olga Mula 2019
 Modified by Changqing Fu
 """
 
-from dolfin import * # FEM solver
 from mshr import * # mesh
-
+from dolfin import * # FEM solver
 import numpy as np
 
-# global variables
-diam_steno_vessel=0.1
-diam_narrow=0.04
-theta_steno=-np.pi/6
-diam_healthy_vessel=0.1
-theta_healthy=-np.pi/6
-length0 = .5
-length = .3
-diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
 
 class Artery():
     def __init__(self, diam_steno_vessel=0.1, diam_narrow=0.04, theta_steno=np.pi/6, diam_healthy_vessel=0.1, theta_healthy=np.pi/6,length0 = .5,length = .3):
@@ -140,16 +130,22 @@ class Artery():
 
 
 if __name__ == '__main__':
+    import matplotlib as mpl
+    if os.environ.get('DISPLAY','') == '':
+        print('no display found. Using non-interactive Agg backend')
+        mpl.use('Agg')
     import matplotlib.pyplot as plt
-    # diam_steno_vessel = 0.6
-    # diam_narrow = 0.4
-    # theta_steno = - np.pi /6
-
-    # diam_healthy_vessel = 0.6
-    # theta_healthy = + np.pi /6
-
+    # variables
+    diam_steno_vessel=0.1
+    diam_narrow=0.02
+    theta_steno=np.pi/6
+    diam_healthy_vessel=0.1
+    theta_healthy=np.pi/6
+    length0 = .5
+    length = .3
+    diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
     mesh_precision = 40
-    # artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
-    mesh = Artery().mesh(mesh_precision)
+    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
+    mesh = artery.mesh(mesh_precision)
     plot(mesh, title='stenosis')
     plt.savefig('mesh.pdf')

@@ -18,8 +18,12 @@ echo "Program Output begins: "
 
 cd ${PBS_O_WORKDIR} 
 
-# python3 mesh_server.py
-python3 boundarycondition_server.py
+which ffmpeg
+which python3
+python3 ../geometry.py
+echo
+echo $PATH
+echo
 
 # ### Quelques infos qui peuvent etre utiles 
 # echo Host `hostname`
