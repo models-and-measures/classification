@@ -46,8 +46,9 @@ class INFLOW(UserExpression):
         y_minus = self.y_minus
         tol = 1E-13
         if x[1] - y_plus < - tol and x[1] + y_minus > tol:
-            # print(self.fval/(x[1] + 0.2)/(0.2 - x[1]) * pow(0.4, 2) *np.exp(-0.5*(np.log((0.2+x[1])/(0.2-x[1]))-0.1)**2))
+            # print(type(u0*fval/(y_minus + x[1])/(y_plus - x[1]) * pow(y_minus + y_plus, 2) *np.exp(-0.5*(np.log((y_minus + x[1])/(y_plus - x[1]))-self.s)**2)),type(values[0]))
             values[0] = u0*fval/(y_minus + x[1])/(y_plus - x[1]) * pow(y_minus + y_plus, 2) *np.exp(-0.5*(np.log((y_minus + x[1])/(y_plus - x[1]))-self.s)**2)
+            # values[0] = 1
         else:
             values[0] = 0
         values[1] = 0
@@ -63,12 +64,12 @@ def rotate(theta,x):
     return np.matmul(rotation,x)
 
 def outflow_healthy(x, on_boundary):
-    theta = -theta_healthy
+    theta = theta_healthy
     new_x = rotate(theta,x)
     return near(new_x[0],length*2) and on_boundary
 
 def outflow_steno(x, on_boundary):
-    theta = theta_steno
+    theta = -theta_steno
     new_x = rotate(theta,x)
     return near(new_x[0],length*2) and on_boundary
 
@@ -81,7 +82,7 @@ def wall_trunk(x):
     return x[0] < DOLFIN_EPS and (near(x[1],y_plus) or near(x[1],y_minus))
 
 def wall_healthy(x):
-    theta = -theta_steno
+    theta = theta_steno
     new_x = rotate(theta,x)
     return new_x[0] > - DOLFIN_EPS and (near(new_x[1],diam_healthy_vessel) or near(new_x[1],0))
         
@@ -97,20 +98,42 @@ def S(x,L):
     return diam_steno_vessel/2 -diam_narrow/2*(1+np.cos(2*np.pi*(x)/L))
 
 def wall_steno(x):
-    tol = 1e-3
-    theta = theta_steno
+    tol = .02
+    theta = -theta_steno
     new_x = rotate(theta,x)
     new_x = new_x + np.array([-length,diam_steno_vessel/2])
-    if new_x[0] < - length - DOLFIN_EPS:
+    if new_x[0] <= - length - DOLFIN_EPS:
         return False
-    L = 2*diam_steno_vessel
-    if new_x[0] > L/2 or new_x[0] < -L/2:
+    if new_x[0] >= length_steno/2 or new_x[0] < -length_steno/2:
         return near(new_x[1],-diam_steno_vessel/2) or near(new_x[1],diam_steno_vessel/2)
     else: 
-        return new_x[1] > S(new_x[0],L) - tol or new_x[1] < -S(new_x[0],L) + tol
+        return new_x[1] > S(new_x[0],length_steno) - tol or new_x[1] < -S(new_x[0],length_steno) + tol
 
 def walls(x, on_boundary):
     return on_boundary and (wall_healthy(x) or wall_steno(x) or wall_trunk(x))
+
+def compute_bc(V,Q,t,
+            p_bdry_1,
+            p_bdry_2,
+            u0,
+            s,
+            inflow_expr,
+            inflow_domain,
+            heartfun,
+            # bcu_walls=bcu_walls
+            ):
+    "In: V, Q. Out: boundary condition"
+
+    heartval=heartfun(t)
+    inflow_expr.set_values(heartval)
+    bcu_inflow = DirichletBC(V, inflow_expr, inflow_domain)
+    bcu_walls = DirichletBC(V, Constant((0, 0)), walls)
+    bcu = [bcu_inflow, bcu_walls]
+
+    bcp_outflow1 = DirichletBC(Q, Constant((p_bdry_1)), outflow_healthy)
+    bcp_outflow2 = DirichletBC(Q, Constant((p_bdry_2)), outflow_steno)
+    bcp = [bcp_outflow1,bcp_outflow2]
+    return bcu, bcp
 
 def compute_mini(mesh):
     P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
@@ -122,7 +145,7 @@ def compute_mini(mesh):
     Mini = FunctionSpace(mesh, mix)
     return Mini
 
-def compute_bc(Mini,t,
+def compute_bc_mini(Mini,t,
             p_bdry_1,
             p_bdry_2,
             u0,
@@ -149,7 +172,6 @@ def compute_bc(Mini,t,
     return [bcu_inflow, bcu_walls, bcp_outflow1, bcp_outflow2]
 
 if __name__ == '__main__':
-    mesh_precision = 40
     # global variables, beware of namespace collision
     # T = 1                   # final time
     # num_steps = 2000        # number of time steps # must satisfy CFL condition
@@ -163,17 +185,17 @@ if __name__ == '__main__':
     p_windkessel_2 = 1.06e5 # init val
     u0 = 2.                 # init amplitude
     s = .5                  # init asymmetry
-    
-    diam_steno_vessel=0.1
-    diam_narrow=0.02
-    theta_steno=np.pi/6
-    diam_healthy_vessel=0.1
-    theta_healthy=np.pi/6
-    length0 = .5
-    length = .3
-    diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
-    mesh_precision = 40
-    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
+
+    # diam_steno_vessel=0.1
+    # diam_narrow=0.02
+    # theta_steno=np.pi/6
+    # diam_healthy_vessel=0.1
+    # theta_healthy=np.pi/6
+    # length0 = .5
+    # length = .3
+    # diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
+    # mesh_precision = 40
+    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy,length0,length, length_steno)
     mesh = artery.mesh(mesh_precision)
 
     # import matplotlib.pyplot as plt

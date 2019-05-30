@@ -14,9 +14,20 @@ from mshr import * # mesh
 from dolfin import * # FEM solver
 import numpy as np
 
+# variables
+diam_steno_vessel=0.1
+diam_narrow=0.00
+theta_steno=np.pi/6
+diam_healthy_vessel=0.1
+theta_healthy=np.pi/6
+length0 = .5
+length = .3
+length_steno  = .2 # 2*diam_steno_vessel                      # Length of stenosis
+diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
+mesh_precision = 40
 
 class Artery():
-    def __init__(self, diam_steno_vessel=0.1, diam_narrow=0.04, theta_steno=np.pi/6, diam_healthy_vessel=0.1, theta_healthy=np.pi/6,length0 = .5,length = .3):
+    def __init__(self, diam_steno_vessel=0.1, diam_narrow=0.04, theta_steno=np.pi/6, diam_healthy_vessel=0.1, theta_healthy=np.pi/6,length0 = .5,length = .3, length_steno = .2):
         
         self.diam_steno_vessel = diam_steno_vessel
         self.diam_narrow = diam_narrow#diam_narrow
@@ -25,6 +36,8 @@ class Artery():
         self.theta_healthy = theta_healthy
         self.length0 = length0
         self.length = length
+        self.length_steno = length_steno
+        self.diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
 
     def __vessel_healthy(self):
         """
@@ -65,11 +78,12 @@ class Artery():
 
         D  = self.diam_steno_vessel   # Diameter vessel
         diam_narrow = self.diam_narrow                  # Narrowing in stenosis (diam_narrow < D/2)
-        L  = 2*D                      # Length of stenosis
+        # L  = 2*D                      # Length of stenosis
+        L  = self.length_steno     # Length of stenosis
         x0 = 0.                       # location of the center of the stenosis
         length = self.length
 
-        def S(x,L):
+        def S(x,length_steno):
             """
                 Section of the stenosis following the paper
                 "Direct numerical simulation of stenotic flows,
@@ -135,17 +149,8 @@ class Artery():
 
 
 if __name__ == '__main__':
-    # variables
-    diam_steno_vessel=0.1
-    diam_narrow=0.02
-    theta_steno=np.pi/6
-    diam_healthy_vessel=0.1
-    theta_healthy=np.pi/6
-    length0 = .5
-    length = .3
-    diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
-    mesh_precision = 40
-    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
+
+    artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy,length0,length, length_steno)
     mesh = artery.mesh(mesh_precision)
     plot(mesh, title='stenosis')
     plt.savefig('mesh.pdf')
