@@ -63,6 +63,7 @@ def plot_diagnosis(diagnoses,fname,pmin=0, pmax=60, head_off = 3):
     plt.ylim(pmin,pmax)
     plt.savefig(fname)
 
+
 def compute_NSsolution(mesh,    
     T,
     num_steps,
@@ -77,6 +78,7 @@ def compute_NSsolution(mesh,
     u0 ,
     s,
     flag_movie = False):
+    "IPCS Scheme"
     dt = T / num_steps
     
     ### Define function spaces
@@ -152,9 +154,9 @@ def compute_NSsolution(mesh,
     ### Diagnosis surface for p
     p1_inflow = np.array([-length0+tol,diam_healthy_vessel * np.cos(theta_healthy)-tol])
     p2_inflow = np.array([-length0+tol,-diam_steno_vessel * np.cos(theta_steno)+tol])
-    p1_healthy_mid = np.array([length-tol,tol])
+    p1_healthy_mid = np.array([length+1.1*length_steno-tol,tol])
     p1_healthy_mid = rotate(-theta_healthy,p1_healthy_mid)
-    p2_healthy_mid = np.array([length-tol,diam_healthy_vessel - tol])
+    p2_healthy_mid = np.array([length+1.1*length_steno-tol,diam_healthy_vessel - tol])
     p2_healthy_mid = rotate(-theta_healthy,p2_healthy_mid)
     p1_steno_before = np.array([length-1.1*length_steno-tol,-tol])
     p1_steno_before = rotate(theta_steno,p1_steno_before)
@@ -189,19 +191,20 @@ def compute_NSsolution(mesh,
         p_windkessel_2 += delta2
         # delta_windkessel2.append(delta2)
 
-        # p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
-        # p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
-        p_bdry_1 = 0
-        p_bdry_2 = 0
+        p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
+        p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
+        p_bdry_1 = 10
+        p_bdry_2 = 10
         bcu, bcp = compute_bc(V,Q,t,p_bdry_1,p_bdry_2,u0,s,inflow_expr,inflow_domain,heartfun,)
-
 
         [bc.apply(A1) for bc in bcu]
         [bc.apply(A2) for bc in bcp]
+        [bc.apply(A3) for bc in bcu]
 
         # Step 1: Tentative velocity step
         b1 = assemble(L1)
         [bc.apply(b1) for bc in bcu]
+        # [bc.apply(b1) for bc in bcp]
         solve(A1, u_.vector(), b1, 'bicgstab', 'hypre_amg')
 
         # Step 2: Pressure correction step
@@ -211,6 +214,8 @@ def compute_NSsolution(mesh,
 
         # Step 3: Velocity correction step
         b3 = assemble(L3)
+        [bc.apply(b3) for bc in bcu]
+        # [bc.apply(b3) for bc in bcp]
         solve(A3, u_.vector(), b3, 'cg', 'sor')
 
         # Update previous solution
@@ -446,7 +451,6 @@ def compute_NSsolution_mini(mesh,
         print("plotting pressure")
         diagnoses = [p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy]
         plot_diagnosis(diagnoses,"diagnoses/diagnoses.pdf",pmin=-20,pmax=120)
-
     return u_,p_,files
 
 def cleanup(files):
@@ -472,18 +476,11 @@ if __name__ == '__main__':
     flag_movie = True
     flag_cleanup = True 
     flag_diagnosis = True
-    flag_IPCS = True
+    flag_IPCS = False
     with_teman = False
     with_bf_est = False
     freq_plot = 1
-    # # windkessel,
-    c = 1                   #1.6e-5 distant capacitance
-    Rd = 1#1e5                #6001.2 distant resistance
-    Rp = 1#5e4                #7501.5 proximal resistance
-    p_windkessel_1 = 1#1.06e5 # init val, large number could lead to overflow
-    p_windkessel_2 = 1#1.06e5 # init val
-    u0 = 1#2.                 # init amplitude
-    s = 0#.5                  # init asymmetry
+
 
     if flag_IPCS:
         u,p,files = compute_NSsolution(mesh,
@@ -499,7 +496,7 @@ if __name__ == '__main__':
         u0=u0,
         s = s,
         flag_movie=flag_movie)
-    else: #mini
+    else: #mini 
         u,p,files = compute_NSsolution_mini(mesh,
         T = T                  ,
         num_steps = num_steps         ,

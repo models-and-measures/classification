@@ -6,7 +6,7 @@ from geometry import * # requires mesh parameters
 
 ### Define boundaries
 def inflow_domain(x, on_boundary):
-    return  near(x[0]+length0, 0) and on_boundary
+    return near(x[0]+length0, 0) and on_boundary
 
 ### Define inflow with heartbeat
 def heartfun(x):
@@ -22,7 +22,7 @@ class Heart():
         self.heartfun0 = interp1d(xp, yp,kind='cubic')
             
     def beat(self,t):
-            return self.heartfun0(t % 1.0)
+        return self.heartfun0(t % 1.0)
 
 # heart = Heart()
 
@@ -58,6 +58,7 @@ class INFLOW(UserExpression):
 # bcu_walls = DirichletBC(V, Constant((0, 0)), walls)
 
 def rotate(theta,x):
+    "rotate CLOCKWISE"
     n0 = np.cos(theta)
     n1 = np.sin(theta)
     rotation = np.array([[n0,n1],[-n1,n0]])
@@ -82,11 +83,11 @@ def wall_trunk(x):
     return x[0] < DOLFIN_EPS and (near(x[1],y_plus) or near(x[1],y_minus))
 
 def wall_healthy(x):
-    theta = theta_steno
+    theta = theta_healthy
     new_x = rotate(theta,x)
     return new_x[0] > - DOLFIN_EPS and (near(new_x[1],diam_healthy_vessel) or near(new_x[1],0))
         
-def S(x,L):
+def S(x):
     """
         Section of the stenosis following the paper
         "Direct numerical simulation of stenotic flows,
@@ -95,10 +96,10 @@ def S(x,L):
     
     # return D/2 * (1-diam_narrow*(1+np.cos(2*np.pi*(x-x0)/L)))
     # L = 2*diam_steno_vessel
-    return diam_steno_vessel/2 -diam_narrow/2*(1+np.cos(2*np.pi*(x)/L))
+    return diam_steno_vessel/2 - diam_narrow/2*(1+np.cos(2*np.pi*(x)/length_steno))
 
 def wall_steno(x):
-    tol = .02
+    tol = .0005
     theta = -theta_steno
     new_x = rotate(theta,x)
     new_x = new_x + np.array([-length,diam_steno_vessel/2])
@@ -107,10 +108,15 @@ def wall_steno(x):
     if new_x[0] >= length_steno/2 or new_x[0] < -length_steno/2:
         return near(new_x[1],-diam_steno_vessel/2) or near(new_x[1],diam_steno_vessel/2)
     else: 
-        return new_x[1] > S(new_x[0],length_steno) - tol or new_x[1] < -S(new_x[0],length_steno) + tol
+        return near(new_x[1],S(new_x[0]),tol) or near(new_x[1],-S(new_x[0]),tol)
 
 def walls(x, on_boundary):
     return on_boundary and (wall_healthy(x) or wall_steno(x) or wall_trunk(x))
+
+def compute_funsp(mesh):
+    V = VectorFunctionSpace(mesh, 'P', 2)
+    Q = FunctionSpace(mesh, 'P', 1)
+    return V,Q
 
 def compute_bc(V,Q,t,
             p_bdry_1,
@@ -172,19 +178,10 @@ def compute_bc_mini(Mini,t,
     return [bcu_inflow, bcu_walls, bcp_outflow1, bcp_outflow2]
 
 if __name__ == '__main__':
-    # global variables, beware of namespace collision
     # T = 1                   # final time
     # num_steps = 2000        # number of time steps # must satisfy CFL condition
     # mu = 0.03               # dynamic viscosity, poise
     # rho = 1                 # density, g/cm3
-    # windkessel
-    c = 1                   #1.6e-5 distant capacitance
-    Rd = 1e5                #6001.2 distant resistance
-    Rp = 5e4                #7501.5 proximal resistance
-    p_windkessel_1 = 1.06e5 # init val, large number could lead to overflow
-    p_windkessel_2 = 1.06e5 # init val
-    u0 = 2.                 # init amplitude
-    s = .5                  # init asymmetry
 
     # diam_steno_vessel=0.1
     # diam_narrow=0.02
@@ -205,20 +202,22 @@ if __name__ == '__main__':
 
     inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
     t = 0.
-    bcs = compute_bc(Mini,t,
+    bcs = compute_bc_mini(Mini,t,
             p_bdry_1 =1,
             p_bdry_2 =1,
             u0=1,
             inflow_expr=inflow_expr,
             inflow_domain=inflow_domain,
             heartfun=heartfun,)
-    print('BC computation test passed.')
 
-            
-            
-            
-            
-            
-            
-            
-            
+    V,Q = compute_funsp(mesh)
+    compute_bc(V,Q,t,
+            1,
+            1,
+            u0,
+            s,
+            inflow_expr,
+            inflow_domain,
+            heartfun)
+
+    print('BC computation test passed.')
