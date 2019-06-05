@@ -14,43 +14,7 @@ from mshr import * # mesh
 from dolfin import * # FEM solver
 import numpy as np
 import sys
-
-# variables
-diam_steno_vessel=0.1
-diam_narrow=0.0
-theta_steno=np.pi/6
-diam_healthy_vessel=0.1
-theta_healthy=np.pi/6
-length0 = .5
-length = .3
-length_steno  = .2 # 2*diam_steno_vessel                      # Length of stenosis
-diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
-mesh_precision = 40
-
-mesh_precision = 32
-sqr2 = 2**.5    #constant for simplicity
-Y0 = 2          #Y trunk length
-Y1 = 2 * sqr2   #Y branch length
-y1 = 2          
-Y2 = 2 * sqr2   #Y branch length
-y2 = 2
-D = .1 * sqr2   #branch radius
-d = .1
-D0 = 2*d        #trunk radius
-A = .5          #shrink length = 2A
-a = A / sqr2
-B = .0          #shrink width = B
-b = B / sqr2
-
-# # windkessel,
-c = 1                     #1.6e-5 distant capacitance
-Rd = 1#1e5                #6001.2 distant resistance
-Rp = 1#5e4                #7501.5 proximal resistance
-p_windkessel_1 = 1#1.06e5 # init val, large number could lead to overflow
-p_windkessel_2 = 1#1.06e5 # init val
-u0 = 1#2.                 # init amplitude
-s = 0#.5                  # init asymmetry
-
+from global_variables import *
 
 class Artery():
     def __init__(self, diam_steno_vessel=0.1, diam_narrow=0.04, theta_steno=np.pi/6, diam_healthy_vessel=0.1, theta_healthy=np.pi/6,length0 = .5,length = .3, length_steno = .2):

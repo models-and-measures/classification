@@ -99,7 +99,7 @@ def S(x):
     return diam_steno_vessel/2 - diam_narrow/2*(1+np.cos(2*np.pi*(x)/length_steno))
 
 def wall_steno(x):
-    tol = .0005
+    tol = .0008
     theta = -theta_steno
     new_x = rotate(theta,x)
     new_x = new_x + np.array([-length,diam_steno_vessel/2])
