@@ -556,7 +556,7 @@ if __name__ == '__main__':
     # mesh
     artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
     mesh = artery.mesh(mesh_precision)
-    File('NSdata/artery.xml.gz') << mesh
+    # File('NSdata/artery.xml.gz') << mesh
     # mesh = Mesh('NSdata/artery.xml.gz')
 
     # Solver
