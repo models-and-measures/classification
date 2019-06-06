@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import dolfin 
 
 def linspace_2d(p1,p2,nn=6):
+    "several points on line segments"
     xx = np.linspace(p1[0],p2[0],nn)
     yy = np.linspace(p1[1],p2[1],nn)
     return [i for i in zip(xx,yy)]
@@ -21,7 +22,7 @@ def eval_fun(u,grid):
     return [u(i) for i in grid]
 
 def find_endpoint(x,y,Y,theta,tol_narrow = .0001, tol_shift = .0001):
-# find endpoints of diagnosis line
+    "find endpoints of diagnosis line. Out: rotation(theta,(x,y)) and rotation(theta,(x,Y)) "
     p1 = np.array([x-tol_shift,y + tol_narrow])
     p1 = rotate(theta,p1)
     p2 = np.array([x-tol_shift,Y - tol_narrow])
@@ -29,6 +30,7 @@ def find_endpoint(x,y,Y,theta,tol_narrow = .0001, tol_shift = .0001):
     return p1,p2
 
 def flux(u,p1,p2,theta,arclength,nn=6):
+    "output flux, necessary for Windkessel model."
     grid = linspace_2d(p1,p2,nn)
     funval = eval_fun(u,grid)
     # print(funval)
@@ -42,11 +44,12 @@ def flux(u,p1,p2,theta,arclength,nn=6):
     return out
 
 def integrate_over_line(p,p1,p2,arclength,nn=6):
+    "line intergral of p between two points."
     grid = linspace_2d(p1,p2,nn)
     funval = eval_fun(p,grid)
     out = sum(funval)/nn*arclength
 
-def plot_solution(u_,p_,fname = "solution.pdf",vmin=0, vmax=150):
+def plot_solution(u_,p_,fname = "solution.pdf",title = 'Velocity',vmin=0, vmax=150):
     import matplotlib
     import matplotlib.gridspec as gridspec
     gs = gridspec.GridSpec(1,2, height_ratios=[1], width_ratios=[0.8,0.05])
