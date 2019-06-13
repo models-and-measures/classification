@@ -59,18 +59,33 @@ git checkout -b master # --track origin/master # origin/master is clone's defaul
 
 # send files from local
 ## with rsync
-./send_from_local
+./send_from_local.sh
 ## with scp
 ```
 scp username@remote:/file/to/send /where/to/put
 scp fuch@cluster.ceremade.dauphine.fr:~/GitHub/classification/code/temp.png ~/Desktop
 ```
 
+
+docker exec evergreen /bin/sh -c "python3 NS_backflow_server.py"
+
 # on the server
 cd GitHub/classification/code
-qsub script.pbs
+qsub test.pbs
+# show jobs
+pbstop
 
 # manage Docker machine with portainer:
 docker run -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer
 
 ## then visit http://0.0.0.0:9000
+
+## note 
+ansible clust,erc -b -K -a "pip3 uninstall -y fenics"
+
+# Notebook
+sshuttle -r fuch@www.ceremade.dauphine.fr 193.48.71.0/25
+
+# VPN
+sshuttle -r fuch@www.ceremade.dauphine.fr 0.0.0.0/0
+

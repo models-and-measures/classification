@@ -9,6 +9,7 @@ import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
     mpl.use('Agg')
+
 import matplotlib.pyplot as plt
 from mshr import * # mesh
 from dolfin import * # FEM solver
@@ -28,7 +29,6 @@ class Artery():
         self.length = length
         self.length_steno = length_steno
         self.diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
-
     def __vessel_healthy(self):
         """
             Points for the
@@ -58,21 +58,17 @@ class Artery():
         theta = self.theta_healthy
         vertices = [ Point(np.cos(theta)*p[0]-np.sin(theta)*p[1],np.sin(theta)*p[0]+np.cos(theta)*p[1]) for p in vertices ]
         return vertices
-
-
     def __vessel_stenosis(self):
         """
             Points for the
             Stenotic vessel in the lower part of the bifurcation
         """
-
         D  = self.diam_steno_vessel   # Diameter vessel
         diam_narrow = self.diam_narrow                  # Narrowing in stenosis (diam_narrow < D/2)
         # L  = 2*D                      # Length of stenosis
         L  = self.length_steno     # Length of stenosis
         x0 = 0.                       # location of the center of the stenosis
         length = self.length
-
         def S(x,length_steno):
             """
                 Section of the stenosis following the paper
@@ -82,9 +78,7 @@ class Artery():
             
             # return D/2 * (1-diam_narrow*(1+np.cos(2*np.pi*(x-x0)/L)))
             return D/2 -diam_narrow/2*(1+np.cos(2*np.pi*(x-x0)/L))
-
         n = 30 # Number of points to build domain (impact on mesh size)
-
         # Bottom
         xref = np.linspace(-length, length, num=n)
         yref = [ -S(x,L) if -L/2<= x and x <= L/2 else -D/2 for x in xref]

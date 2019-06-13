@@ -4,12 +4,12 @@ from tqdm import tqdm # status bar
 import os
 import subprocess
 import numpy as np
-import matplotlib as mpl
-if os.environ.get('DISPLAY','') == '':
-    print('no display found. Using non-interactive Agg backend')
-    mpl.use('Agg')
-import matplotlib.pyplot as plt
-import dolfin 
+# import matplotlib as mpl
+# if os.environ.get('DISPLAY','') == '':
+#     print('no display found. Using non-interactive Agg backend')
+#     mpl.use('Agg')
+# import matplotlib.pyplot as plt
+# import dolfin 
 
 def linspace_2d(p1,p2,nn=6):
     "several points on line segments"
@@ -49,6 +49,17 @@ def integrate_over_line(p,p1,p2,arclength,nn=6):
     funval = eval_fun(p,grid)
     out = sum(funval)/nn*arclength
 
+
+def find_gridpoints(x,X,y,Y,nx = 10,ny = 4):
+    xx = np.linspace(x, X, nx)
+    yy = np.linspace(y, Y, ny)
+    XX, YY = np.meshgrid(xx, yy)
+    XX = XX.reshape(1,-1).tolist()[0]
+    YY = YY.reshape(1,-1).tolist()[0]
+    points = [np.array(i) for i in zip(XX,YY)]
+    return points
+
+
 def plot_solution(u_,p_,fname = "solution.pdf",title = 'Velocity',vmin=0, vmax=150):
     import matplotlib
     import matplotlib.gridspec as gridspec
@@ -58,12 +69,12 @@ def plot_solution(u_,p_,fname = "solution.pdf",title = 'Velocity',vmin=0, vmax=1
     ax1.set_aspect('equal')
     import matplotlib
     plt1 = plot(p_,norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=False))
-    plt2 = plot(u_,title = 'Velocity')#,norm=matplotlib.colors.Normalize(vmin=0, vmax=10000, clip=False))
+    plt2 = plot(u_,title = title)#,norm=matplotlib.colors.Normalize(vmin=0, vmax=10000, clip=False))
     cbax = plt.subplot(gs[0,1])
     cb = plt.colorbar(cax = cbax, mappable = plt1, orientation = 'vertical', ticklocation = 'right')
     plt.savefig(fname)
 
-def plot_diagnosis(T,num_steps,diagnoses,fname,pmin=0, pmax=60, head_off = 3):
+def plot_diagnosis(T,num_steps,diagnoses,fname = 'diagnoses.pdf',pmin=0, pmax=60, head_off = 3):
     tt = np.linspace(0,T,num_steps-head_off)
     plt.figure()
     for p in diagnoses:
@@ -74,46 +85,43 @@ def plot_diagnosis(T,num_steps,diagnoses,fname,pmin=0, pmax=60, head_off = 3):
     plt.ylim(pmin,pmax)
     plt.savefig(fname)
 
-def compute_mixedspace_IPCS(mesh):
+def compute_space_IPCS(mesh):
     V = VectorFunctionSpace(mesh, 'P', 2)
     Q = FunctionSpace(mesh, 'P', 1)
     return V,Q
 
-def compute_NSsolution(mesh,    
+def compute_NSsolution_IPCS(mesh,    
     T,
     num_steps,
-    mu            ,
-    rho       ,
+    mu,
+    rho,
     # windkessel,
-    c          ,
-    Rd       ,
-    Rp        ,
-    p_windkessel_1  ,
-    p_windkessel_2  ,
-    u0 ,
+    c,
+    Rd,
+    Rp,
+    p_windkessel_1,
+    p_windkessel_2,
+    u0,
     s,
     uname,
     pname,
     flag_movie = False,
-    flag_diagnosis = True):
+    flag_diagnosis = True,
+    flag_tqdm = True):
     "IPCS Scheme"
     dt = T / num_steps
-    
     ### Define function spaces
-    V, Q = compute_mixedspace_IPCS(mesh)
-
+    V, Q = compute_space_IPCS(mesh)
     #### Define trial and test functions
     u = TrialFunction(V)
     v = TestFunction(V)
     p = TrialFunction(Q)
     q = TestFunction(Q)
-
     #### Define functions for solutions at previous and current time steps
     u_n = Function(V)
     u_  = Function(V)
     p_n = Function(Q)
     p_  = Function(Q)
-
     #### Define expressions used in variational forms
     U  = 0.5*(u_n + u)
     n  = FacetNormal(mesh)
@@ -121,18 +129,13 @@ def compute_NSsolution(mesh,
     k  = Constant(dt)
     mu = Constant(mu)
     rho = Constant(rho)
-
     inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
-
-
     #### Define symmetric gradient
     def epsilon(u):
         return sym(nabla_grad(u))
-
     #### Define stress tensor
     def sigma(u, p):
         return 2*mu*epsilon(u) - p*Identity(len(u))
-
     #### Define variational problem for step 1
     F1 = rho*dot((u - u_n) / k, v)*dx \
        + rho*dot(dot(u_n, nabla_grad(u_n)), v)*dx \
@@ -141,22 +144,17 @@ def compute_NSsolution(mesh,
        - dot(f, v)*dx
     a1 = lhs(F1)
     L1 = rhs(F1)
-
     #### Define variational problem for step 2
     a2 = dot(nabla_grad(p), nabla_grad(q))*dx
     L2 = dot(nabla_grad(p_n), nabla_grad(q))*dx - (1/k)*div(u_)*q*dx
-
     #### Define variational problem for step 3
     a3 = dot(u, v)*dx
     L3 = dot(u_, v)*dx - k*dot(nabla_grad(p_ - p_n), v)*dx
-
     #### Assemble matrices
     A1 = assemble(a1)
     A2 = assemble(a2)
     A3 = assemble(a3)
-
     tol=.001
-
     # Points:
     ### Flux surface for u
     p1_healthy = np.array([length*2-tol,tol])
@@ -167,7 +165,6 @@ def compute_NSsolution(mesh,
     p1_steno = rotate(theta_steno,p1_steno)
     p2_steno = np.array([length*2-tol,-diam_steno_vessel + tol])
     p2_steno = rotate(theta_steno,p2_steno)
-
     # ### Diagnosis surface for p
     # p1_inflow = np.array([-length0+tol,diam_healthy_vessel * np.cos(theta_healthy)-tol])
     # p2_inflow = np.array([-length0+tol,-diam_steno_vessel * np.cos(theta_steno)+tol])
@@ -183,17 +180,15 @@ def compute_NSsolution(mesh,
     # p1_steno_after = rotate(theta_steno,p1_steno_after)
     # p2_steno_after = np.array([length+1.1*length_steno-tol,-diam_steno_vessel + tol])
     # p2_steno_after = rotate(theta_steno,p2_steno_after)
-
     ### status bar
-    pbar = tqdm(total=T)
-
+    if flag_tqdm:
+        pbar = tqdm(total=T)
     # Create time series (for use in reaction_system.py)
     timeseries_u = TimeSeries(uname)
     timeseries_p = TimeSeries(pname)
-
     ### Time-stepping
     t = 0.0
-    files = []
+    # files = []
     flux_healthy = []
     flux_stenosis = []
     # p_int_inflow = []
@@ -211,66 +206,57 @@ def compute_NSsolution(mesh,
         delta2 = dt/c*(-p_windkessel_2/Rd+u_avg_2)
         p_windkessel_2 += delta2
         # delta_windkessel2.append(delta2)
-
         p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
         p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
         # p_bdry_1 = 10
         # p_bdry_2 = 10
         bcu, bcp = compute_bc(V,Q,t,p_bdry_1,p_bdry_2,u0,s,inflow_expr,inflow_domain,heartfun,)
-
         [bc.apply(A1) for bc in bcu]
         [bc.apply(A2) for bc in bcp]
         [bc.apply(A3) for bc in bcu]
-
         # Step 1: Tentative velocity step
         b1 = assemble(L1)
         [bc.apply(b1) for bc in bcu]
         # [bc.apply(b1) for bc in bcp]
         solve(A1, u_.vector(), b1, 'bicgstab', 'hypre_amg')
-
         # Step 2: Pressure correction step
         b2 = assemble(L2)
         [bc.apply(b2) for bc in bcp]
         solve(A2, p_.vector(), b2, 'bicgstab', 'hypre_amg')
-
         # Step 3: Velocity correction step
         b3 = assemble(L3)
         [bc.apply(b3) for bc in bcu]
         # [bc.apply(b3) for bc in bcp]
         solve(A3, u_.vector(), b3, 'cg', 'sor')
-
         # Save nodal values to file
         timeseries_u.store(u_.vector(), t)
         timeseries_p.store(p_.vector(), t)
-
         # Update previous solution
         p_n.assign(p_)
         u_n.assign(u_)
-
         # # diagnosis on p
         # p_int_inflow            .append(p_(p1_inflow        ))#integrate_over_line(p_ ,p1_inflow        ,p2_inflow      ,artery.diam_trunk))
         # p_int_before_stenosis   .append(p_(p1_steno_before  ))#integrate_over_line(p_ ,p1_steno_before  ,p2_steno_before    ,artery.diam_steno_vessel))
         # p_int_after_stenosis    .append(p_(p1_steno_after   ))#integrate_over_line(p_ ,p1_steno_after   ,p2_steno_after     ,artery.diam_steno_vessel))
         # p_int_healthy           .append(p_(p1_healthy_mid   ))#integrate_over_line(p_ ,p1_healthy       ,p2_healthy         ,artery.diam_healthy_vessel))
-
         # Update progress bar
-        pbar.update(dt)
-        pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
 
+        if flag_tqdm:
+            pbar.update(dt)
+            pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
         # if flag_movie:
         #     fname = './tmp/_tmp%05d.png' % n
         #     plot_solution(u_,p_,fname)
         #     files.append(fname)
 
-    pbar.close()
-
+    if flag_tqdm:
+        pbar.close()
     # if flag_diagnosis:
     #     # p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy
     #     diagnoses = [p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy]
     #     plot_diagnosis(T,num_steps,diagnoses,"diagnoses/diagnoses.pdf",pmin=-20,pmax=120)
     #     print("pressure plotted.")
-
-    return u_,p_,files
+    return u_,p_
 
 def movie(fname = "./output/output.mp4"):
     # print('Making animation - this may take a while')
@@ -296,7 +282,6 @@ def make_movie_IPCS(mesh,
     # p1_steno = rotate(theta_steno,p1_steno)
     # p2_steno = np.array([length*2-tol,-diam_steno_vessel + tol])
     # p2_steno = rotate(theta_steno,p2_steno)
-
     ### Diagnosis surface for p
     p1_inflow = np.array([-length0+tol,diam_healthy_vessel * np.cos(theta_healthy)-tol])
     p2_inflow = np.array([-length0+tol,-diam_steno_vessel * np.cos(theta_steno)+tol])
@@ -312,10 +297,9 @@ def make_movie_IPCS(mesh,
     p1_steno_after = rotate(theta_steno,p1_steno_after)
     p2_steno_after = np.array([length+1.1*length_steno-tol,-diam_steno_vessel + tol])
     p2_steno_after = rotate(theta_steno,p2_steno_after)
-
     timeseries_u = TimeSeries(uname)
     timeseries_p = TimeSeries(pname)
-    V,Q = compute_mixedspace_IPCS(mesh)
+    V,Q = compute_space_IPCS(mesh)
     u = Function(V)
     p = Function(Q)
     t = 0
@@ -326,6 +310,7 @@ def make_movie_IPCS(mesh,
     p_int_before_stenosis = []
     p_int_after_stenosis = []
     p_int_healthy = []
+    files = []
     for n in range(num_steps):
         # Update current time
         t += dt
@@ -337,14 +322,38 @@ def make_movie_IPCS(mesh,
         p_int_before_stenosis   .append(p(p1_steno_before  ))#integrate_over_line(p_ ,p1_steno_before  ,p2_steno_before    ,artery.diam_steno_vessel))
         p_int_after_stenosis    .append(p(p1_steno_after   ))#integrate_over_line(p_ ,p1_steno_after   ,p2_steno_after     ,artery.diam_steno_vessel))
         p_int_healthy           .append(p(p1_healthy_mid   ))#integrate_over_line(p_ ,p1_healthy       ,p2_healthy         ,artery.diam_healthy_vessel))
-
         fname = './tmp/_tmp%05d.png' % n
-        plot_solution(u,p,fname)
+        files.append(fname)
+        plot_solution(u,p,fname,title = '%.2f' % t)
         pbar.update(dt)
         pbar.set_description("Plotting... t = %.4f" % t)
-
     pbar.close()
     movie(writename)
+    diagnoses = [p_int_inflow, p_int_before_stenosis, p_int_after_stenosis, p_int_healthy]
+    return diagnoses,files
+
+def diagnosis_IPCS(mesh, 
+                    T,
+                    s = s,
+                    uname = 'NSdata/u_series',
+                    pname = 'NSdata/p_series',
+                    x=-.4,X=-.2,y=-.03,Y=.03):
+    timeseries_u = TimeSeries(uname)
+    timeseries_p = TimeSeries(pname)
+    V,Q = compute_space_IPCS(mesh)
+    u = Function(V)
+    p = Function(Q)
+    t = T
+    # Read velocity from file
+    timeseries_u.retrieve(u.vector(), t)
+    timeseries_p.retrieve(p.vector(), t)
+    # diagnosis 
+    upoints = find_gridpoints(x,X,y,Y)
+    udata = eval_fun(u,upoints)
+    np.savetxt('tmp/s=%.2f,diam_narrow=%2f.csv' % (s,diam_narrow), udata, delimiter=",")
+#     pbar.close()
+    # movie(writename)
+    return udata,s,diam_narrow
 
 def compute_NSsolution_mini(mesh,    
     T             ,
@@ -364,12 +373,13 @@ def compute_NSsolution_mini(mesh,
     p_windkessel_1,
     p_windkessel_2,
     u0               ,
+    s=s,
     flag_movie = False,
+    flag_tqdm = True,
     with_teman = False,
     with_bf_est = False,
     freq_plot = 1):
     dt = T / num_steps
-    
     ### Define function spaces
     Mini = compute_mini(mesh)
     # Define variational problem
@@ -377,10 +387,8 @@ def compute_NSsolution_mini(mesh,
     u_ = Function(Mini.sub(0).collapse())
     # u_ = project(inflow_expr, Mini.sub(0).collapse())
     p_ = Function(Mini.sub(1).collapse())
-
     (u, p) = TrialFunctions(Mini)
     (v, q) = TestFunctions(Mini)
-
     # Variatonal form a = L
     def abs_n(x):
         return 0.5*(x - abs(x))
@@ -456,7 +464,9 @@ def compute_NSsolution_mini(mesh,
     # p2_steno_after = rotate(theta_steno,p2_steno_after)
 
     ### status bar
-    pbar = tqdm(total=T)
+
+    if flag_tqdm:
+        pbar = tqdm(total=T)
 
     ### Time-stepping
     t = 0.0
@@ -529,8 +539,9 @@ def compute_NSsolution_mini(mesh,
         # p_int_after_stenosis    .append(integrate_over_line(p_ ,p1_steno_after   ,p2_steno_after     ,artery.diam_steno_vessel))
         # p_int_healthy           .append(integrate_over_line(p_ ,p1_healthy       ,p2_healthy         ,artery.diam_healthy_vessel))
         # Update progress bar
-        pbar.update(dt)
-        pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
+        if flag_tqdm:
+            pbar.update(dt)
+            pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
 
         if flag_movie:
             if n % freq_plot == 0:
@@ -539,7 +550,9 @@ def compute_NSsolution_mini(mesh,
                 files.append(fname)
                 num_plot +=1
 
-    pbar.close()
+    if flag_tqdm:
+        pbar.close()
+    return u,p,files
 
 
 def cleanup(files):
@@ -560,21 +573,22 @@ if __name__ == '__main__':
     # mesh = Mesh('NSdata/artery.xml.gz')
 
     # Solver
-    T = .01
-    num_steps = 10
+    T = 2
+    num_steps = 2000
     flag_movie = False
     flag_cleanup = True 
     flag_diagnosis = True
     flag_IPCS = True
     with_teman = False
     with_bf_est = False
+    flag_tqdm = False
     freq_plot = 1
     uname = 'NSdata/u_series'
     pname = 'NSdata/p_series'
 
 
     if flag_IPCS:
-        u,p,files = compute_NSsolution(mesh,
+        u,p,files = compute_NSsolution_IPCS(mesh,
         T=T,
         num_steps=num_steps,
         mu=mu,
@@ -589,7 +603,7 @@ if __name__ == '__main__':
         uname = uname,
         pname = pname,
         flag_movie=flag_movie)
-        make_movie_IPCS(mesh, 
+        p_int_inflow, p_int_before_stenosis, p_int_after_stenosis, p_int_healthy = make_movie_IPCS(mesh, 
                     T,
                     num_steps,
                     uname = 'NSdata/u_series',

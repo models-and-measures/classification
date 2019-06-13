@@ -4,11 +4,10 @@
 #PBS -l nodes=3:ppn=4  
 #PBS -j oe   
 #PBS -M changqing.fu@dauphine.eu
-# #PBS -m e
-# #PBS -e $PBS_JOBNAME$PBS_JOBID.o 
-#PBS -e error.txt
-# --this prevents permission error
-#PBS -o output.txt 
+#PBS -m e
+#PBS -e $PBS_JOBNAME$PBS_JOBID.o 
+# # PBS -e error.txt # --this prevents permission error
+#PBS -o $PBS_JOBNAME$PBS_JOBID.o
 
 echo "Running on: " 
 cat ${PBS_NODEFILE} 
@@ -20,10 +19,16 @@ cd ${PBS_O_WORKDIR}
 
 # which ffmpeg
 # which python3
-python3 ./NS_backflow_server.py
-echo
-echo $PATH
-echo
+# python3 ./NS_backflow_server.
+
+# echo
+# echo $PATH
+# echo
+cd ~/code
+# ~/.local/bin/fenicsproject start evergreen -i
+docker start evergreen
+docker exec evergreen /bin/sh -c "python3 NS_backflow_server.py"
+docker stop evergreen
 
 # ### Quelques infos qui peuvent etre utiles 
 # echo Host `hostname`
