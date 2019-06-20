@@ -1,7 +1,16 @@
 import numpy as np
-# variables
-diam_steno_vessel=0.1
+# global variables
+# reasons why using it: 
+# - local variables are not easy to fit in fenics built-in functions, namely geometric boundary, which take only the value of x (location).
+# - simplicity and ease to modify
+
+# Heart source
+u0 = 1#20#2.                 # init amplitude
+# symmetry!!!!!!!!!!
+s = 0.#.5                  # init asymmetry
+#shrink!!!!!!!!!!!!!
 diam_narrow=0.03#0.02
+diam_steno_vessel=0.1
 theta_steno=np.pi/6
 diam_healthy_vessel=0.1
 theta_healthy=np.pi/6
@@ -30,10 +39,9 @@ B = .0          #shrink width = B
 b = B / sqr2
 
 # # windkessel,
-c = 1                     #1.6e-5 distant capacitance
-Rd = 1#1e5                #6001.2 distant resistance
-Rp = 1#5e4                #7501.5 proximal resistance
-p_windkessel_1 = 1#1.06e5 # init val, large number could lead to overflow
-p_windkessel_2 = 1#1.06e5 # init val
-u0 = 1#2.                 # init amplitude
-s = 0.#.5                  # init asymmetry
+c = 1#1.6e-5              # distant capacitance
+Rd = 1#6001.2             #1e5 #6001.2 distant resistance
+Rp = 1#7501.5             #5e4 #7501.5 proximal resistance
+p_windkessel_1 = 1#1.06e5 #1.06e5 # init val, large number could lead to overflow
+p_windkessel_2 = 1#1.06e5 #1.06e5 # init val
+

@@ -1,0 +1,21 @@
+#!/bin/bash
+#PBS -N evergreen
+#PBS -l nodes=1:ppn=2
+#PBS -M changqing.fu@dauphine.eu
+#PBS -m e
+#PBS -o Brusselator/T_${T}-N_${N}-eps_${EPS}/log.o
+#PBS -e Brusselator/T_${T}-N_${N}-eps_${EPS}/log.e
+#PBS -p 19
+
+cd $PBS_O_WORKDIR
+
+# So that OpenMP uses a number ppn of threads
+OMP_NUM_THREADS=$PBS_NUM_PPN
+export  OMP_NUM_THREADS
+
+# rm -rf Brusselator/T_${T}-N_${N}-eps_${EPS}
+# mkdir Brusselator/T_${T}-N_${N}-eps_${EPS}
+# pyenv shell 3.6.2
+docker start evergreen
+docker exec evergreen /bin/sh -c "python3 test.py -s ${s} -diam_narrow ${diam_narrow}"
+docker stop evergreen

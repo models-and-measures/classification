@@ -4,22 +4,25 @@ Geometry of an artery bifurcation
 Olga Mula 2019
 Modified by Changqing Fu
 """
+#default parameters. 
+from global_variables import * 
+#standard packages
 import os
 import matplotlib as mpl
+#check if the environment is on the server
 if os.environ.get('DISPLAY','') == '':
     print('no display found. Using non-interactive Agg backend')
     mpl.use('Agg')
-
 import matplotlib.pyplot as plt
-from mshr import * # mesh
-from dolfin import * # FEM solver
+# mesh
+from mshr import * 
+# FEM solver
+from dolfin import * 
 import numpy as np
 import sys
-from global_variables import *
 
 class Artery():
     def __init__(self, diam_steno_vessel=0.1, diam_narrow=0.04, theta_steno=np.pi/6, diam_healthy_vessel=0.1, theta_healthy=np.pi/6,length0 = .5,length = .3, length_steno = .2):
-        
         self.diam_steno_vessel = diam_steno_vessel
         self.diam_narrow = diam_narrow#diam_narrow
         self.theta_steno = theta_steno

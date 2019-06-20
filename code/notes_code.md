@@ -35,6 +35,8 @@ dock rm [id]
 jupyter notebook --ip 0.0.0.0
 
 ssh fuch@cluster.ceremade.dauphine.fr
+# Password: Fuch19()
+
 
 # clone code from git:
 git clone https://github.com/models-and-measures/classification.git
@@ -66,14 +68,19 @@ scp username@remote:/file/to/send /where/to/put
 scp fuch@cluster.ceremade.dauphine.fr:~/GitHub/classification/code/temp.png ~/Desktop
 ```
 
-
+docker start evergreen
 docker exec evergreen /bin/sh -c "python3 NS_backflow_server.py"
+docker stop evergreen
 
 # on the server
 cd GitHub/classification/code
 qsub test.pbs
+qsub -I
 # show jobs
 pbstop
+qstat
+# delete job
+qdel #ID
 
 # manage Docker machine with portainer:
 docker run -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer
@@ -85,6 +92,7 @@ ansible clust,erc -b -K -a "pip3 uninstall -y fenics"
 
 # Notebook
 sshuttle -r fuch@www.ceremade.dauphine.fr 193.48.71.0/25
+sshuttle -r fuch@clust6.ceremade.dauphine.fr 193.48.71.0/25
 
 # VPN
 sshuttle -r fuch@www.ceremade.dauphine.fr 0.0.0.0/0
