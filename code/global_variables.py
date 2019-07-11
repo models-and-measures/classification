@@ -7,8 +7,10 @@ import numpy as np
 # Heart source
 u0 = 1#20#2.                 # init amplitude
 # symmetry!!!!!!!!!!
+global s 
 s = 0.#.5                  # init asymmetry
 #shrink!!!!!!!!!!!!!
+global diam_narrow
 diam_narrow=0.03#0.02
 diam_steno_vessel=0.1
 theta_steno=np.pi/6

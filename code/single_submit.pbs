@@ -1,0 +1,28 @@
+#!/bin/bash
+# usage: on cluster(scheduler): qsub single_submit.pbs
+#PBS -N evergreen
+#PBS -l nodes=clust7:ppn=39
+#PBS -M changqing.fu@dauphine.eu
+# bae = begin abort end
+#PBS -m bae
+#PBS -o $PBS_JOBID.o
+#PBS -e $PBS_JOBID.e
+#PBS -k oe 
+# check output/error in real-time
+#PBS -p 19
+
+cd $PBS_O_WORKDIR
+# So that OpenMP uses a number ppn of threads
+printf "ppn = "
+echo $PBS_NUM_PPN
+export OMP_NUM_THREADS=$PBS_NUM_PPN
+export OMP_NUM_THREADS
+printf "num_threads = "
+echo $OMP_NUM_THREADS
+# rm -rf Brusselator/T_${T}-N_${N}-eps_${EPS}
+# mkdir Brusselator/T_${T}-N_${N}-eps_${EPS}
+# pyenv shell 3.6.2
+docker start evergreen
+cd GitHub/classification/code/
+docker exec evergreen bash -c "cd GitHub/classification/code && ./single_submit_run.sh"
+docker stop evergreen

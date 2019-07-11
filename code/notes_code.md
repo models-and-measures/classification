@@ -91,9 +91,22 @@ docker run -d -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock -v porta
 ansible clust,erc -b -K -a "pip3 uninstall -y fenics"
 
 # Notebook
-sshuttle -r fuch@www.ceremade.dauphine.fr 193.48.71.0/25
-sshuttle -r fuch@clust6.ceremade.dauphine.fr 193.48.71.0/25
+sshuttle -r fuch@www.ceremade.dauphine.fr 193.48.71.0/25 -D
+## then qsub -I -l nodes=clust6:ppn=2
+## then jupyter notebook --ip=0.0.0.0
+## then visit clust6
 
 # VPN
 sshuttle -r fuch@www.ceremade.dauphine.fr 0.0.0.0/0
+
+
+# code_saturn by edf (CFD)
+docker pull sebastienhoarau/code_saturne
+
+# debug encoding
+sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/ /g' run_multiple_submit.sh > run_multiple_submit_bak.sh
+
+# send file from remote to local with scp
+scp fuch@cluster.ceremade.dauphine.fr:~/code/*.sh ./download/
+*
 
