@@ -1,64 +1,91 @@
-
 import numpy as np
 import os
+import matplotlib.pyplot as plt
+import subprocess
+# mesh
+from mshr import * 
+# FEM solver
+from fenics import * 
+import sys
+from scipy.interpolate import interp1d
+import argparse
+print(__name__)
+
+######## Check environment ########
 if os.environ.get('DISPLAY','') == '':
-    print('no display found. Using non-interactive Agg backend')
+    print('currently on server/docker. Using non-interactive Agg backend')
     import matplotlib as mpl
     mpl.use('Agg')
     FLAG_TQDM = False
+    FLAG_MOVIE = False
     flag_argparse = True
 else:
     FLAG_TQDM = True
+    FLAG_MOVIE = True
     try:
         get_ipython().config 
         from tqdm import tqdm_notebook as tqdm
         print('currently on local notebook')
         flag_argparse = False
+        S = float(os.environ['notebook_s'])
+        D = float(os.environ['notebook_d'])
         # call init() on notebook to set global variables
     except NameError:
         from tqdm import tqdm # status bar
         print('currently on local')
         flag_argparse = True
 
-def init(S,D):
-    global s
-    global diam_narrow
-    s = S
-    diam_narrow = D
-
-import matplotlib.pyplot as plt
-import subprocess
-# mesh
-from mshr import * 
-# FEM solver
-from dolfin import * 
-import sys
-from scipy.interpolate import interp1d
-import argparse
-
-u0 = 1#20#2.                 # init amplitude
-# # symmetry!!!!!!!!!!
-# global s 
-# # s = 0.#.5                  # init asymmetry
-# #shrink!!!!!!!!!!!!!
-# global diam_narrow
-# # diam_narrow=0.004#0.02
-
+######## Pass Variables as global variables (default val = 0) ########
 if flag_argparse:
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', help="symmetry", type= float)
     parser.add_argument('-diam_narrow', '-d', type= float, help="diam_narrow")
     args=parser.parse_args()
     # print(args)
-    if args.s:  
-        pass
-    if args.diam_narrow:
-        pass
     # global s
     # global diam_narrow
-    s=args.s
-    diam_narrow=args.diam_narrow
+    if args.s:  
+        pass
+        S=args.s
+    else:
+        S=0
+    if args.diam_narrow:
+        pass
+        D = args.diam_narrow
+    else:
+        D = 0
 
+######## Global Variables ########
+s = S
+diam_narrow = D
+######## Solver Variables ########
+T = .46 # Final time
+critical_time = 0.46 # Backflow happens at this time. To save time, compute up until backflow time by assigning T
+num_steps = 250 # mind CFL condition (TBA: computation)
+flag_IPCS = True # solver selection (IPCS Projection method with P2-P1 element or intrinsic method with Mini-element)
+# only for mini
+with_teman = True # stablization scheme for mini element
+with_bf_est = False # stablization scheme for mini element
+######## Saving ########
+flag_ts = True # save time series data for movie and diagnosis
+flag_xdmf = False # save data in xdmf format
+flag_pvd = True # save data in pvd format, for visualization e.g. paraview
+uname = 'NSdata/u_series' # where to store data
+pname = 'NSdata/p_series' 
+xname = 'diagnoses/'
+######## Output ########
+flag_movie = FLAG_MOVIE # generate mp4 movie after computaion
+freq_plot = 1 # downsample frames to film movies faster
+flag_diagnosis = False # record pressure change
+flag_cleanup = FLAG_MOVIE # clean up image files after filming
+flag_xray = False # posterior xray, a.k.a. summary statistics
+plot_while_solving = False # produce plots for movie, which does not require saving and reloading data (in case in fail sometimes on cluster) but slows down the solver
+flag_xray_after_solving = True # perform xray immediately after solving at terminal time
+flag_tqdm = FLAG_TQDM # whether to show status bar
+
+print("using parameters (s, d) = ",s,diam_narrow)
+
+######## Geometry Variables ########
 diam_steno_vessel=0.1
 theta_steno=np.pi/6
 diam_healthy_vessel=0.1
@@ -68,32 +95,17 @@ length = .3
 length_steno  = .2 # 2*diam_steno_vessel                      # Length of stenosis
 diam_trunk = diam_healthy_vessel * np.cos(theta_healthy) + diam_steno_vessel * np.cos(theta_steno)
 mesh_precision = 30
-#physics
-mu = 0.03
-rho = 1
+######## Physical Variables ########
+mu = 0.03 # viscosity
+rho = 1 # homogeneous density
+u0 = 1 # 20#2.                 # init amplitude
 
-#old geometry
-sqr2 = 2**.5    #constant for simplicity
-Y0 = 2          #Y trunk length
-Y1 = 2 * sqr2   #Y branch length
-y1 = 2          
-Y2 = 2 * sqr2   #Y branch length
-y2 = 2
-D = .1 * sqr2   #branch radius
-d = .1
-D0 = 2*d        #trunk radius
-A = .5          #shrink length = 2A
-a = A / sqr2
-B = .0          #shrink width = B
-b = B / sqr2
-
-# # windkessel,
+######## Windkessel Variables ########
 c = 1#1.6e-5              # distant capacitance
 Rd = 1#6001.2             #1e5 #6001.2 distant resistance
 Rp = 1#7501.5             #5e4 #7501.5 proximal resistance
 p_windkessel_1 = 1#1.06e5 #1.06e5 # init val, large number could lead to overflow
 p_windkessel_2 = 1#1.06e5 #1.06e5 # init val
-
 
 ######## Mesh ########
 class Artery():
@@ -209,30 +221,6 @@ class Artery():
         # mesh_precision = 20
         return generate_mesh(self.__domain(), mesh_precision)
 
-def compute_mesh(Y0=Y0,Y1=Y1,Y2=Y2,d=d,a=a,b=b,mesh_precision=mesh_precision):
-    "Old mesh"
-    domain_vertices = [Point(-Y0        , -D0        ),
-                       Point(0.0        , -D0        ),
-                       Point(y2-d       , -y2-d      ),
-                       Point(y2+d       , -y2+d      ),
-                       Point(y2/2+d+a   , -y2/2+d-a  ),
-                       Point(y2/2+d+a-b , -y2/2+d-a-b),
-                       Point(y2/2+d-a-b , -y2/2+d+a-b),
-                       Point(y2/2+d-a   , -y2/2+d+a  ),
-                       Point(d*2        , 0          ),
-                       Point(y1+d       , y1-d       ),
-                       Point(y1-d       , y1+d       ),
-                       Point(0.0        , D0         ),
-                       Point(-Y0        , D0         )]
-    polygon = Polygon(domain_vertices)
-    domain = polygon
-    mesh = generate_mesh(domain, mesh_precision)
-    File('NSdata/mesh.xml.gz') << mesh
-    ### Define function spaces
-    # V = VectorFunctionSpace(mesh, 'P', 2)
-    # Q = FunctionSpace(mesh, 'P', 1)
-    return mesh
-
 ######## BC ########
 def inflow_domain(x, on_boundary):
     "Define boundaries"
@@ -262,7 +250,7 @@ class INFLOW(UserExpression):
     def __init__(self, u0, s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy, **kwargs):
         super().__init__(**kwargs) #super makes sure all superclass are initiated...
         self.u0 = u0
-        self.s = 0
+        self.s = s
         self.y_plus = diam_healthy_vessel * np.cos(theta_healthy)
         self.y_minus = diam_steno_vessel * np.cos(theta_steno)
     def set_values(self,heartval):
@@ -330,7 +318,7 @@ def S(x):
     return diam_steno_vessel/2 - diam_narrow/2*(1+np.cos(2*np.pi*(x)/length_steno))
 
 def wall_steno(x):
-    tol = .0008
+    tol = .0015
     theta = -theta_steno
     new_x = rotate(theta,x)
     new_x = new_x + np.array([-length,diam_steno_vessel/2])
@@ -350,15 +338,15 @@ def compute_funsp(mesh):
     return V,Q
 
 def compute_bc(V,Q,t,
-            p_bdry_1,
-            p_bdry_2,
-            u0,
-            s,
-            inflow_expr,
-            inflow_domain,
-            heartfun,
-            # bcu_walls=bcu_walls
-            ):
+    p_bdry_1,
+    p_bdry_2,
+    u0,
+    s,
+    inflow_expr,
+    inflow_domain,
+    heartfun,
+    # bcu_walls=bcu_walls
+    ):
     "P2-P1 mesh. In: V, Q. Out: boundary condition"
     heartval=heartfun(t)
     inflow_expr.set_values(heartval)
@@ -382,14 +370,14 @@ def compute_mini(mesh):
     return Mini
 
 def compute_bc_mini(Mini,t,
-            p_bdry_1,
-            p_bdry_2,
-            u0,
-            inflow_expr,
-            inflow_domain,
-            heartfun,
-            # bcu_walls=bcu_walls
-            ):
+    p_bdry_1,
+    p_bdry_2,
+    u0,
+    inflow_expr,
+    inflow_domain,
+    heartfun,
+    # bcu_walls=bcu_walls
+    ):
     "`mini' mesh. In: mesh. Out: boundary condition"
     heartval=heartfun(t)
     # heartval=heart.beat(t)
@@ -445,7 +433,6 @@ def integrate_over_line(p,p1,p2,arclength,nn=20):
     funval = eval_fun(p,grid)
     out = sum(funval)/nn*arclength
 
-
 def find_gridpoints(x,X,y,Y,nx = 20,ny = 10):
     xx = np.linspace(x, X, nx)
     yy = np.linspace(y, Y, ny)
@@ -454,7 +441,6 @@ def find_gridpoints(x,X,y,Y,nx = 20,ny = 10):
     YY = YY.reshape(1,-1).tolist()[0]
     points = [np.array(i) for i in zip(XX,YY)]
     return points
-
 
 def plot_solution(u_,p_,fname = "solution.pdf",title = 'Velocity',vmin=0, vmax=150):
     import matplotlib
@@ -486,21 +472,19 @@ def compute_space_IPCS(mesh):
     Q = FunctionSpace(mesh, 'P', 1)
     return V,Q
 
-
 def movie(fname = "./output/output.mp4"):
     # print('Making animation - this may take a while')
     subprocess.call("ffmpeg -i ./tmp/_tmp%05d.png -r 60 -pix_fmt yuv420p "+fname, shell=True)
 
 def make_movie(mesh, 
-                    T,
-                    num_steps,
-                    uname = 'NSdata/u_series',
-                    pname = 'NSdata/p_series',
-                    # writename = './output/output.mp4',
-                    tol = 0.001,
-                    flag_tqdm = True,
-                    flag_IPCS = True):
-
+    T,
+    num_steps,
+    uname = 'NSdata/u_series',
+    pname = 'NSdata/p_series',
+    # writename = './output/output.mp4',
+    tol = 0.001,
+    flag_tqdm = True,
+    flag_IPCS = True):
 
     timeseries_u = TimeSeries(uname)
     timeseries_p = TimeSeries(pname)
@@ -539,13 +523,14 @@ def make_movie(mesh,
     return files
 
 def xray(mesh, 
-                    T,
-                    s = 0,
-                    diam_narrow = 0,
-                    uname = 'NSdata/u_series',
-                    pname = 'NSdata/p_series',
-                    x=-.4,X=-.2,y=-.03,Y=.03,
-                    flag_IPCS = True):
+    critical_time,
+    s = 0,
+    diam_narrow = 0,
+    uname = 'NSdata/u_series',
+    pname = 'NSdata/p_series',
+    xname = 'diagnoses/',
+    x=-.4,X=-.2,y=-.03,Y=.03,
+    flag_IPCS = True):
     timeseries_u = TimeSeries(uname)
     timeseries_p = TimeSeries(pname)
     if flag_IPCS:
@@ -556,29 +541,28 @@ def xray(mesh,
         Mini = compute_mini(mesh)
         u = Function(Mini.sub(0).collapse())
         p = Function(Mini.sub(1).collapse())
-    t = T
+    t = critical_time
     # Read velocity from file
     timeseries_u.retrieve(u.vector(), t)
     timeseries_p.retrieve(p.vector(), t)
     # diagnosis 
     upoints = find_gridpoints(x,X,y,Y)
     udata = eval_fun(u,upoints)
-    folder = 'diagnoses/'
+    folder = xname
     name = folder + 's=%.2f,diam_narrow=%2f.csv' % (s,diam_narrow)
     np.savetxt(name, udata, delimiter=",")
-#     pbar.close()
-    # movie(writename)
     return udata,s,diam_narrow
 
 def diagnosis(mesh, 
-                    T,num_steps,
-                    s = 0,
-                    diam_narrow = 0,
-                    uname = 'NSdata/u_series',
-                    pname = 'NSdata/p_series',
-                    flag_tqdm = True,
-                    flag_IPCS = True,
-                    tol = 0.001):
+    T,num_steps,
+    s = 0,
+    diam_narrow = 0,
+    uname = 'NSdata/u_series',
+    pname = 'NSdata/p_series',
+    dname = 'diagnoses/',
+    flag_tqdm = True,
+    flag_IPCS = True,
+    tol = 0.001):
     timeseries_u = TimeSeries(uname)
     timeseries_p = TimeSeries(pname)
     if flag_IPCS:
@@ -641,13 +625,13 @@ def diagnosis(mesh,
     plt.plot(p_int_healthy)
     # plt.show()
     plt.legend(['p_int_inflow', 'p_int_before_stenosis', 'p_int_after_stenosis', 'p_int_healthy'])
-    folder = 'diagnoses/'
+    folder = dname
     name = folder+'s=%.2f,diam_narrow=%2f.pdf' % (s,diam_narrow)
     plt.savefig(name)
     diagnoses = [p_int_inflow, p_int_before_stenosis, p_int_after_stenosis, p_int_healthy]
     return diagnoses
 
-def compute_NSsolution_IPCS(mesh,
+def compute_NSsolution(mesh,
     T,
     num_steps,
     mu,
@@ -660,61 +644,21 @@ def compute_NSsolution_IPCS(mesh,
     p_windkessel_2,
     u0,
     s,
-    uname,
-    pname,
+    uname = 'NSdata/u_series',
+    pname = 'NSdata/p_series',
+    xname = "xray/",
     # flag_movie = False,
+    flag_IPCS = True,
     flag_xray = True,
     flag_tqdm = True,
     flag_xdmf = True,
     flag_pvd = True,
     flag_ts = True,
-    plot_during_solving = False):
+    plot_while_solving = False,
+    flag_xray_after_solving = True):
     "IPCS Scheme"
     dt = T / num_steps
-    ### Define function spaces
-    V, Q = compute_space_IPCS(mesh)
-    #### Define trial and test functions
-    u = TrialFunction(V)
-    v = TestFunction(V)
-    p = TrialFunction(Q)
-    q = TestFunction(Q)
-    #### Define functions for solutions at previous and current time steps
-    u_n = Function(V)
-    u_  = Function(V)
-    p_n = Function(Q)
-    p_  = Function(Q)
-    #### Define expressions used in variational forms
-    U  = 0.5*(u_n + u)
-    n  = FacetNormal(mesh)
-    f  = Constant((0, 0))
-    k  = Constant(dt)
-    mu = Constant(mu)
-    rho = Constant(rho)
     inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
-    #### Define symmetric gradient
-    def epsilon(u):
-        return sym(nabla_grad(u))
-    #### Define stress tensor
-    def sigma(u, p):
-        return 2*mu*epsilon(u) - p*Identity(len(u))
-    #### Define variational problem for step 1
-    F1 = rho*dot((u - u_n) / k, v)*dx \
-       + rho*dot(dot(u_n, nabla_grad(u_n)), v)*dx \
-       + inner(sigma(U, p_n), epsilon(v))*dx \
-       + dot(p_n*n, v)*ds - dot(mu*nabla_grad(U)*n, v)*ds \
-       - dot(f, v)*dx
-    a1 = lhs(F1)
-    L1 = rhs(F1)
-    #### Define variational problem for step 2
-    a2 = dot(nabla_grad(p), nabla_grad(q))*dx
-    L2 = dot(nabla_grad(p_n), nabla_grad(q))*dx - (1/k)*div(u_)*q*dx
-    #### Define variational problem for step 3
-    a3 = dot(u, v)*dx
-    L3 = dot(u_, v)*dx - k*dot(nabla_grad(p_ - p_n), v)*dx
-    #### Assemble matrices
-    A1 = assemble(a1)
-    A2 = assemble(a2)
-    A3 = assemble(a3)
     tol=.001
     # Points:
     ### Flux surface for u
@@ -738,333 +682,316 @@ def compute_NSsolution_IPCS(mesh,
     # files = []
     flux_healthy = []
     flux_stenosis = []
-    # p_int_inflow = []
-    # p_int_before_stenosis = []
-    # p_int_after_stenosis = []
-    # p_int_healthy = []
-    for n in range(num_steps):
-        # Update current time
-        t += dt
-        # u_avg_1 = flux(u_,p1_healthy,p2_healthy,theta_healthy,diam_healthy_vessel)
-        # u_avg_2 = flux(u_,p1_steno,p2_steno,-theta_steno,diam_steno_vessel)
-        # delta1 = dt/c*(-p_windkessel_1/Rd+u_avg_1)
-        # # delta_windkessel1.append(delta1)
-        # p_windkessel_1 += delta1
-        # delta2 = dt/c*(-p_windkessel_2/Rd+u_avg_2)
-        # p_windkessel_2 += delta2
-        # # delta_windkessel2.append(delta2)
-        # p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
-        # p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
-        # print(p_bdry_1,p_bdry_2)
-        # p_bdry_1 = 10
-        # p_bdry_2 = 10
-        # bcu, bcp = compute_bc(V,Q,t,p_bdry_1,p_bdry_2,u0,s,inflow_expr,inflow_domain,heartfun,)
-        bcu, bcp = compute_bc(V,Q,t,0,0,u0,s,inflow_expr,inflow_domain,heartfun,)
-        [bc.apply(A1) for bc in bcu]
-        [bc.apply(A2) for bc in bcp]
-        [bc.apply(A3) for bc in bcu]
-        # Step 1: Tentative velocity step
-        b1 = assemble(L1)
-        [bc.apply(b1) for bc in bcu]
-        [bc.apply(b1) for bc in bcp]
-        solve(A1, u_.vector(), b1, 'bicgstab', 'hypre_amg')
-        # Step 2: Pressure correction step
-        b2 = assemble(L2)
-        [bc.apply(b2) for bc in bcp]
-        solve(A2, p_.vector(), b2, 'bicgstab', 'hypre_amg')
-        # Step 3: Velocity correction step
-        b3 = assemble(L3)
-        [bc.apply(b3) for bc in bcu]
-        # [bc.apply(b3) for bc in bcp]
-        solve(A3, u_.vector(), b3, 'cg', 'sor')
-        if flag_xdmf:
-            xdmffile_u.write(u_, t)
-            xdmffile_p.write(p_, t)
-        if flag_pvd:
-            pvdfile_u << (u_, t)
-            pvdfile_p << (p_, t)
-        if flag_ts:
-            # Create time series (for use in reaction_system.py)
-            timeseries_u.store(u_.vector(), t)
-            timeseries_p.store(p_.vector(), t)
-        # Update previous solution
-        p_n.assign(p_)
-        u_n.assign(u_)
-        # # diagnosis on p
-        # p_int_inflow            .append(p_(p1_inflow        ))#integrate_over_line(p_ ,p1_inflow        ,p2_inflow      ,artery.diam_trunk))
-        # p_int_before_stenosis   .append(p_(p1_steno_before  ))#integrate_over_line(p_ ,p1_steno_before  ,p2_steno_before    ,artery.diam_steno_vessel))
-        # p_int_after_stenosis    .append(p_(p1_steno_after   ))#integrate_over_line(p_ ,p1_steno_after   ,p2_steno_after     ,artery.diam_steno_vessel))
-        # p_int_healthy           .append(p_(p1_healthy_mid   ))#integrate_over_line(p_ ,p1_healthy       ,p2_healthy         ,artery.diam_healthy_vessel))
-        # Update progress bar
-        if flag_tqdm:
-            pbar.update(dt)
-            pbar.set_description("t = %.4f " % t + 'u_max: %.2f, ' % u_.vector().vec().max()[1] + 'p_max: %.2f ' % p_.vector().vec().max()[1])
-        if plot_during_solving:
-            fname = './tmp/_tmp%05d.png' % n
-            plot_solution(u_,p_,fname)
-            # files.append(fname)
 
-    # equiv to xray function
-    x=-.4
-    X=-.2
-    y=-.03
-    Y=.03
-    upoints = find_gridpoints(x,X,y,Y)
-    udata = eval_fun(u_,upoints)
-    folder = 'diagnoses/'
-    name = folder + 's=%.2f,diam_narrow=%2f.csv' % (s,diam_narrow)
-    np.savetxt(name, udata, delimiter=",")
+    if flag_IPCS:
+        ### Define function spaces
+        V, Q = compute_space_IPCS(mesh)
+        #### Define trial and test functions
+        u = TrialFunction(V)
+        v = TestFunction(V)
+        p = TrialFunction(Q)
+        q = TestFunction(Q)
+        #### Define functions for solutions at previous and current time steps
+        u_n = Function(V)
+        u_  = Function(V)
+        p_n = Function(Q)
+        p_  = Function(Q)    
+        #### Define expressions used in variational forms
+        U  = 0.5*(u_n + u)
+        n  = FacetNormal(mesh)
+        f  = Constant((0, 0))
+        k  = Constant(dt)
+        mu = Constant(mu)
+        rho = Constant(rho)
+        #### Define symmetric gradient
+        def epsilon(u):
+            return sym(nabla_grad(u))
+        #### Define stress tensor
+        def sigma(u, p):
+            return 2*mu*epsilon(u) - p*Identity(len(u))
+        #### Define variational problem for step 1
+        ds = Measure('exterior_facet', subdomain_id='everywhere')
+        # print(ds)
+        F1 = rho*dot((u - u_n) / k, v)*dx \
+           + rho*dot(dot(u_n, nabla_grad(u_n)), v)*dx \
+           + inner(sigma(U, p_n), epsilon(v))*dx \
+           + dot(p_n*n, v)*ds - dot(mu*nabla_grad(U)*n, v)*ds \
+           - dot(f, v)*dx
+        a1 = lhs(F1)
+        L1 = rhs(F1)
+        #### Define variational problem for step 2
+        a2 = dot(nabla_grad(p), nabla_grad(q))*dx
+        L2 = dot(nabla_grad(p_n), nabla_grad(q))*dx - (1/k)*div(u_)*q*dx
+        #### Define variational problem for step 3
+        a3 = dot(u, v)*dx
+        L3 = dot(u_, v)*dx - k*dot(nabla_grad(p_ - p_n), v)*dx
+        #### Assemble matrices
+        A1 = assemble(a1)
+        A2 = assemble(a2)
+        A3 = assemble(a3)
+        # p_int_inflow = []
+        # p_int_before_stenosis = []
+        # p_int_after_stenosis = []
+        # p_int_healthy = []
+        for n in range(num_steps):
+            # Update current time
+            t += dt
+            # u_avg_1 = flux(u_,p1_healthy,p2_healthy,theta_healthy,diam_healthy_vessel)
+            # u_avg_2 = flux(u_,p1_steno,p2_steno,-theta_steno,diam_steno_vessel)
+            # delta1 = dt/c*(-p_windkessel_1/Rd+u_avg_1)
+            # # delta_windkessel1.append(delta1)
+            # p_windkessel_1 += delta1
+            # delta2 = dt/c*(-p_windkessel_2/Rd+u_avg_2)
+            # p_windkessel_2 += delta2
+            # # delta_windkessel2.append(delta2)
+            # p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
+            # p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
+            # print(p_bdry_1,p_bdry_2)
+            # p_bdry_1 = 10
+            # p_bdry_2 = 10
+            # bcu, bcp = compute_bc(V,Q,t,p_bdry_1,p_bdry_2,u0,s,inflow_expr,inflow_domain,heartfun,)
+            bcu, bcp = compute_bc(V,Q,t,0,0,u0,s,inflow_expr,inflow_domain,heartfun,)
+            [bc.apply(A1) for bc in bcu]
+            [bc.apply(A2) for bc in bcp]
+            [bc.apply(A3) for bc in bcu]
+            # Step 1: Tentative velocity step
+            b1 = assemble(L1)
+            [bc.apply(b1) for bc in bcu]
+            [bc.apply(b1) for bc in bcp]
+            solve(A1, u_.vector(), b1, 'bicgstab', 'hypre_amg')
+            # Step 2: Pressure correction step
+            b2 = assemble(L2)
+            [bc.apply(b2) for bc in bcp]
+            solve(A2, p_.vector(), b2, 'bicgstab', 'hypre_amg')
+            # Step 3: Velocity correction step
+            b3 = assemble(L3)
+            [bc.apply(b3) for bc in bcu]
+            # [bc.apply(b3) for bc in bcp]
+            solve(A3, u_.vector(), b3, 'cg', 'sor')
+            if flag_xdmf:
+                xdmffile_u.write(u_, t)
+                xdmffile_p.write(p_, t)
+            if flag_pvd:
+                pvdfile_u << (u_, t)
+                pvdfile_p << (p_, t)
+            if flag_ts:
+                # Create time series (for use in reaction_system.py)
+                timeseries_u.store(u_.vector(), t)
+                timeseries_p.store(p_.vector(), t)
+            # Update previous solution
+            p_n.assign(p_)
+            u_n.assign(u_)
+            # # diagnosis on p
+            # p_int_inflow            .append(p_(p1_inflow        ))#integrate_over_line(p_ ,p1_inflow        ,p2_inflow      ,artery.diam_trunk))
+            # p_int_before_stenosis   .append(p_(p1_steno_before  ))#integrate_over_line(p_ ,p1_steno_before  ,p2_steno_before    ,artery.diam_steno_vessel))
+            # p_int_after_stenosis    .append(p_(p1_steno_after   ))#integrate_over_line(p_ ,p1_steno_after   ,p2_steno_after     ,artery.diam_steno_vessel))
+            # p_int_healthy           .append(p_(p1_healthy_mid   ))#integrate_over_line(p_ ,p1_healthy       ,p2_healthy         ,artery.diam_healthy_vessel))
+            # Update progress bar
+            if flag_tqdm:
+                pbar.update(dt)
+                pbar.set_description("t = %.4f " % t + 'u_max: %.2f, ' % u_.vector().vec().max()[1] + 'p_max: %.2f ' % p_.vector().vec().max()[1])
+            if plot_while_solving:
+                fname = './tmp/_tmp%05d.png' % n
+                plot_solution(u_,p_,fname)
+                # files.append(fname)
+    else:
+        ################ Mini
+        Mini = compute_mini(mesh)
+        # Define variational problem
+        # w_ = Function(Mini)
+        u_ = Function(Mini.sub(0).collapse())
+        # u_ = project(inflow_expr, Mini.sub(0).collapse())
+        p_ = Function(Mini.sub(1).collapse())
+        (u, p) = TrialFunctions(Mini)
+        (v, q) = TestFunctions(Mini)
+        # Variatonal form a = L
+        def abs_n(x):
+            return 0.5*(x - abs(x))
+
+        n = FacetNormal(mesh)
+
+        a   = rho/dt*inner(u,  v)*dx \
+            + mu*inner(grad(u), grad(v))*dx + q*div(u)*dx \
+            - div(v)*p*dx \
+            + rho*inner(grad(u)*u_, v)*dx \
+
+        ## Define Subdomain marker
+        boundary_markers = MeshFunction('size_t', mesh, dim=2)
+        class outflow_boundary(SubDomain):
+            # tol = 1E-14
+            def inside(self, x, on_boundary):
+                return outflow(x,on_boundary)
+        ob = outflow_boundary()
+        ob.mark(boundary_markers, 2)
+        ds = Measure('ds', domain=mesh, subdomain_data=boundary_markers)
+
+
+        if with_teman:
+            a = a + 0.5*rho*(div(u_)*inner(u, v))*dx 
+        if with_bf_est:
+            a = a - 0.5*rho*abs_n(dot(u_, n))*inner(u, v)*ds(2)
+
+        L   = rho/dt*inner(u_, v)*dx
+
+        ## Define Subdomain marker
+        # boundary_markers = FacetFunction('size_t', mesh)
+        # class ourflow_boundary(SubDomain):
+        #     tol = 1E-14
+        #     def inside(self, x, on_boundary):
+        #         return outflow(x,on_boundary)
+        # ob = ourflow_boundary()
+        # ob.mark(boundary_markers, 2)
+        # ds = Measure('ds', domain=mesh, subdomain_data=boundary_markers)
+
+        # Configure solver
+        w = Function(Mini)
+        for n in range(num_steps):
+            # Update current time
+            t += dt
+
+            ## Windkessel
+            u_avg_1 = flux(u_,p1_healthy,p2_healthy,theta_healthy,diam_healthy_vessel)
+            u_avg_2 = flux(u_,p1_steno,p2_steno,-theta_steno,diam_steno_vessel)
+            delta1 = dt/c*(-p_windkessel_1/Rd+u_avg_1)
+            # delta_windkessel1.append(delta1)
+            p_windkessel_1 += delta1
+            delta2 = dt/c*(-p_windkessel_2/Rd+u_avg_2)
+            p_windkessel_2 += delta2
+            # delta_windkessel2.append(delta2)
+
+            p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
+            p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
+
+            # p_bdry_1 = 0
+            # p_bdry_2 = 0
+
+            # bcu_inflow = DirichletBC(Mini.sub(0), project(inflow_expr, Mini.sub(0).collapse()), inflow_domain)
+
+            # collect boundary conditions and assemble system
+            # bcs = [bcu_walls, bcu_inflow] # TODO: Add Windkessel
+            # bcs = compute_bc(Mini,t,p_bdry_1 = 1, p_bdry_2 = 1)
+            # bcs = compute_bc(Mini,t,p_bdry_1 = 0, p_bdry_2 = 0)
+            bcs = compute_bc_mini(Mini,t,
+                p_bdry_1 = 0,
+                p_bdry_2 = 0,
+                u0=u0,
+                inflow_expr=inflow_expr,
+                inflow_domain=inflow_domain,
+                heartfun=heartfun,)
+            A, b = assemble_system(a, L, bcs)
+
+            # solving linear system
+            solve(A, w.vector(), b)
+            # solve(A, w.vector(), b, 'superlu')
+
+            ut, pt = w.split(deepcopy = True)
+
+            # Save solution to file
+            # ufile_pvd << ut, t
+            # pfile_pvd << pt, t
+            # ufile_h5.write(ut, "velocity_" + str(t))
+            # pfile_h5.write(pt, "pressure_" + str(t))
+            if flag_xdmf:
+                xdmffile_u.write(u_, t)
+                xdmffile_p.write(p_, t)
+            if flag_pvd:
+                pvdfile_u << (u_, t)
+                pvdfile_p << (p_, t)
+            if flag_ts:
+                # Create time series (for use in reaction_system.py)
+                timeseries_u.store(u_.vector(), t)
+                timeseries_p.store(p_.vector(), t)
+                       
+            # update variables
+            u_.assign(ut)
+            p_.assign(pt)
+            
+            # Update progress bar
+            if flag_tqdm:
+                pbar.update(dt)
+                pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
+            if plot_while_solving:
+                fname = './tmp/_tmp%05d.png' % n
+                plot_solution(u_,p_,fname)
+                # files.append(fname)
+
+    ##################
+
+    if flag_xray_after_solving:
+        # equiv to xray function
+        x=-.4
+        X=-.2
+        y=-.03
+        Y=.03
+        upoints = find_gridpoints(x,X,y,Y)
+        udata = eval_fun(u_,upoints)
+        folder = xname
+        name = folder + 's=%.2f,diam_narrow=%2f.csv' % (s,diam_narrow)
+        np.savetxt(name, udata, delimiter=",")
 
     if flag_tqdm:
         pbar.close()
-    # if flag_xray:
-    #     # p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy
-    #     diagnoses = [p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy]
-    #     plot_diagnosis(T,num_steps,diagnoses,"diagnoses/diagnoses.pdf",pmin=-20,pmax=120)
-    #     print("pressure plotted.")
     return u_,p_
-
-
-def compute_NSsolution_mini(mesh,    
-    T             ,
-    num_steps     ,
-    mu            ,
-    rho           ,
-    # # windkessel,
-    # c = 1                   ,
-    # Rd = 1e5                ,
-    # Rp = 5e4                ,
-    # p_windkessel_1 = 1.06e5 ,
-    # p_windkessel_2 = 1.06e5 ,
-    # u0=20.                  ,
-    c               ,
-    Rd              ,
-    Rp             ,
-    p_windkessel_1,
-    p_windkessel_2,
-    u0               ,
-    s=0,
-    # flag_movie = False,
-    flag_tqdm = True,
-    with_teman = False,
-    with_bf_est = False,
-    freq_plot = 1):
-    dt = T / num_steps
-    ### Define function spaces
-    Mini = compute_mini(mesh)
-    # Define variational problem
-    # w_ = Function(Mini)
-    u_ = Function(Mini.sub(0).collapse())
-    # u_ = project(inflow_expr, Mini.sub(0).collapse())
-    p_ = Function(Mini.sub(1).collapse())
-    (u, p) = TrialFunctions(Mini)
-    (v, q) = TestFunctions(Mini)
-    # Variatonal form a = L
-    def abs_n(x):
-        return 0.5*(x - abs(x))
-
-    n = FacetNormal(mesh)
-
-    a   = rho/dt*inner(u,  v)*dx \
-        + mu*inner(grad(u), grad(v))*dx + q*div(u)*dx \
-        - div(v)*p*dx \
-        + rho*inner(grad(u)*u_, v)*dx \
-
-    ## Define Subdomain marker
-    boundary_markers = MeshFunction('size_t', mesh, dim=2)
-    class outflow_boundary(SubDomain):
-        # tol = 1E-14
-        def inside(self, x, on_boundary):
-            return outflow(x,on_boundary)
-    ob = outflow_boundary()
-    ob.mark(boundary_markers, 2)
-    ds = Measure('ds', domain=mesh, subdomain_data=boundary_markers)
-
-
-    if with_teman:
-        a = a + 0.5*rho*(div(u_)*inner(u, v))*dx 
-    if with_bf_est:
-        a = a - 0.5*rho*abs_n(dot(u_, n))*inner(u, v)*ds(2)
-
-    L   = rho/dt*inner(u_, v)*dx
-
-    ## Define Subdomain marker
-    # boundary_markers = FacetFunction('size_t', mesh)
-    # class ourflow_boundary(SubDomain):
-    #     tol = 1E-14
-    #     def inside(self, x, on_boundary):
-    #         return outflow(x,on_boundary)
-    # ob = ourflow_boundary()
-    # ob.mark(boundary_markers, 2)
-    # ds = Measure('ds', domain=mesh, subdomain_data=boundary_markers)
-
-    # Configure solver
-    w = Function(Mini)
-
-    inflow_expr = INFLOW(u0,s,diam_steno_vessel, theta_steno, diam_healthy_vessel, theta_healthy,degree=2)
-
-    # Points:
-    ### Flux surface for u
-    p1_healthy, p2_healthy = find_endpoint(length*2,0,diam_healthy_vessel,-theta_healthy)
-    p2_steno, p1_steno = find_endpoint(length*2,-diam_steno_vessel,0,theta_steno)
-
-    ### status bar
-
-    if flag_tqdm:
-        pbar = tqdm(total=T)
-
-    ### Time-stepping
-    t = 0.0
-    files = []
-    flux_healthy = []
-    flux_stenosis = []
-    # p_int_inflow = []
-    # p_int_before_stenosis = []
-    # p_int_after_stenosis = []
-    # p_int_healthy = []
-    num_plot = 0
-    for n in range(num_steps):
-        # Update current time
-        t += dt
-
-        ## Windkessel
-        u_avg_1 = flux(u_,p1_healthy,p2_healthy,theta_healthy,diam_healthy_vessel)
-        u_avg_2 = flux(u_,p1_steno,p2_steno,-theta_steno,diam_steno_vessel)
-        delta1 = dt/c*(-p_windkessel_1/Rd+u_avg_1)
-        # delta_windkessel1.append(delta1)
-        p_windkessel_1 += delta1
-        delta2 = dt/c*(-p_windkessel_2/Rd+u_avg_2)
-        p_windkessel_2 += delta2
-        # delta_windkessel2.append(delta2)
-
-        p_bdry_1 = Rp * u_avg_1 + p_windkessel_1
-        p_bdry_2 = Rp * u_avg_2 + p_windkessel_2
-
-        # p_bdry_1 = 0
-        # p_bdry_2 = 0
-
-        # bcu_inflow = DirichletBC(Mini.sub(0), project(inflow_expr, Mini.sub(0).collapse()), inflow_domain)
-
-        # collect boundary conditions and assemble system
-        # bcs = [bcu_walls, bcu_inflow] # TODO: Add Windkessel
-        # bcs = compute_bc(Mini,t,p_bdry_1 = 1, p_bdry_2 = 1)
-        # bcs = compute_bc(Mini,t,p_bdry_1 = 0, p_bdry_2 = 0)
-        bcs = compute_bc_mini(Mini,t,
-            p_bdry_1 = p_bdry_1,
-            p_bdry_2 = p_bdry_2,
-            u0=u0,
-            inflow_expr=inflow_expr,
-            inflow_domain=inflow_domain,
-            heartfun=heartfun,)
-        A, b = assemble_system(a, L, bcs)
-
-        # solving linear system
-        solve(A, w.vector(), b, 'superlu')
-
-        ut, pt = w.split(deepcopy = True)
-
-        # Save solution to file
-        # ufile_pvd << ut, t
-        # pfile_pvd << pt, t
-        # ufile_h5.write(ut, "velocity_" + str(t))
-        # pfile_h5.write(pt, "pressure_" + str(t))
-                   
-        # update variables
-        u_.assign(ut)
-        p_.assign(pt)
-
-        
-        # Update progress bar
-        if flag_tqdm:
-            pbar.update(dt)
-            pbar.set_description("t = %.4f" % t + 'u_max:%.2f, ' % u_.vector().vec().max()[1] + 'p_max:%.2f ' % p_.vector().vec().max()[1])
-
-
-    if flag_tqdm:
-        pbar.close()
-    return u,p,files
-
 
 def cleanup(files):
     for fname in files:
         os.remove(fname)
 
-
-# def diagnose(p_series,p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy):
-#     diagnoses = [p_int_inflow,p_int_before_stenosis,p_int_after_stenosis,p_int_healthy]
-#     plot_diagnosis(T,num_steps,diagnoses,"output/diagnoses.pdf",pmin=-20,pmax=120)
-
 if __name__ == '__main__':
-
-    # print("using parameters (s,d):",s,diam_narrow)
-    # mesh
+    ######## Main porcess ########
     artery = Artery(diam_steno_vessel, diam_narrow, theta_steno, diam_healthy_vessel, theta_healthy)
     mesh = artery.mesh(mesh_precision)
     # File('NSdata/artery.xml.gz') << mesh
     # mesh = Mesh('NSdata/artery.xml.gz')
     plot(mesh)
     plt.savefig("mesh.jpg")
-    # Solver
-    T = .46
-    critical_time = 0.46
-    num_steps = 300
-    flag_cleanup = False 
-    flag_xray = False
-    flag_diagnosis = False
-    flag_IPCS = True
-    # only for mini
-    with_teman = False
-    with_bf_est = False
-    # plotting flags
-    plot_during_solving = False
-    flag_tqdm = FLAG_TQDM
-    flag_xdmf = False,
-    flag_pvd = False,
-    flag_ts = False,
-    freq_plot = 1
-    flag_movie = False
-    uname = 'NSdata/u_series'
-    pname = 'NSdata/p_series'
 
-    if flag_IPCS:
-        u,p= compute_NSsolution_IPCS(mesh,
-        T=T,
-        num_steps=num_steps,
-        mu=mu,
-        rho=rho,
-        c=c,
-        Rd=Rd,
-        Rp=Rp,
-        p_windkessel_1=p_windkessel_1,
-        p_windkessel_2=p_windkessel_2,
-        u0=u0,
-        s = s,
-        uname = uname,
-        pname = pname,
-        flag_tqdm = FLAG_TQDM,
-        flag_xdmf = flag_xdmf,
-        flag_pvd = flag_pvd,
-        flag_ts = flag_ts,
-        plot_during_solving = plot_during_solving
-        # flag_movie=flag_movie
-        )
-    else: #mini 
-        u,p = compute_NSsolution_mini(mesh,
-        T = T                  ,
-        num_steps = num_steps         ,
-        mu = mu               ,
-        rho = rho                 ,
-        # # windkessel,
-        c = c                   ,
-        Rd = Rd                ,
-        Rp = Rp                ,
-        p_windkessel_1 = p_windkessel_1 ,
-        p_windkessel_2 = p_windkessel_2 ,
-        u0 = u0                  ,
-        # flag_movie = flag_movie,
-        with_teman = with_teman,
-        with_bf_est = with_bf_est,
-        freq_plot = freq_plot)
+    with open("num_process.txt","r") as f:
+        num_process=int(f.read())
+
+    with open("num_process.txt","w+") as f:
+        f.write(str(num_process+1))
+
+    u,p= compute_NSsolution(mesh,
+    T=T,
+    num_steps=num_steps,
+    mu=mu,
+    rho=rho,
+    c=c,
+    Rd=Rd,
+    Rp=Rp,
+    p_windkessel_1=p_windkessel_1,
+    p_windkessel_2=p_windkessel_2,
+    u0=u0,
+    s = s,
+    uname = uname,
+    pname = pname,
+    xname = xname,
+    flag_IPCS = flag_IPCS,
+    flag_tqdm = FLAG_TQDM,
+    flag_xdmf = flag_xdmf,
+    flag_pvd = flag_pvd,
+    flag_ts = flag_ts,
+    plot_while_solving = plot_while_solving,
+    flag_xray_after_solving = flag_xray_after_solving
+    )
+    # else: #mini 
+    #     u,p = compute_NSsolution_mini(mesh,
+    #     T = T                  ,
+    #     num_steps = num_steps         ,
+    #     mu = mu               ,
+    #     rho = rho                 ,
+    #     # # windkessel,
+    #     c = c                   ,
+    #     Rd = Rd                ,
+    #     Rp = Rp                ,
+    #     p_windkessel_1 = p_windkessel_1 ,
+    #     p_windkessel_2 = p_windkessel_2 ,
+    #     u0 = u0                  ,
+    #     # flag_movie = flag_movie,
+    #     with_teman = with_teman,
+    #     with_bf_est = with_bf_est,
+    #     freq_plot = freq_plot)
 
     if flag_movie: # plotting is slow
         files = make_movie(mesh, 
@@ -1078,11 +1005,13 @@ if __name__ == '__main__':
         if flag_cleanup:
             cleanup(files)
 
+
     if flag_xray:
         udata,s,diam_narrow = xray(mesh, 
                 critical_time,
                 s = s,
                 diam_narrow = diam_narrow,
+                xname = xname,
                 uname = uname,
                 pname = pname,
                 flag_IPCS = flag_IPCS)
@@ -1091,8 +1020,15 @@ if __name__ == '__main__':
                     T,num_steps,
                     s = s,
                     diam_narrow = diam_narrow,
+                    dname = dname,
                     uname = uname,
                     pname = pname,
                     flag_IPCS = True)
+    
+    with open("num_process.txt","r") as f:
+        num_process=int(f.read())
 
-    # print('NS computation completed.')
+    with open("num_process.txt","w+") as f:
+        f.write(str(num_process-1))
+
+#     # print('NS computation completed.')

@@ -107,6 +107,6 @@ docker pull sebastienhoarau/code_saturne
 sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/ /g' run_multiple_submit.sh > run_multiple_submit_bak.sh
 
 # send file from remote to local with scp
-scp fuch@cluster.ceremade.dauphine.fr:~/code/*.sh ./download/
+scp fuch@cluster.ceremade.dauphine.fr:~/code/diagnoses/*.csv ./download/
 *
 
